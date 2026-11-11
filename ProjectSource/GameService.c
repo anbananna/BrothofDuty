@@ -63,8 +63,8 @@ typedef enum
 typedef enum
 {
     TASK_CUT_CARROT = 0,
-    TASK_STIR_POT = 1,
-    TASK_HEAT_COIL = 2
+    TASK_STIR_POT,
+    TASK_HEAT_COIL
 } GameTask_t;
 
 
