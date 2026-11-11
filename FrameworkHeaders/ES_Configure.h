@@ -33,21 +33,30 @@
 /****************************************************************************/
 // This macro determines that nuber of services that are *actually* used in
 // a particular application. It will vary in value from 1 to MAX_NUM_SERVICES
-#define NUM_SERVICES 3
+#define NUM_SERVICES 2
 
 /****************************************************************************/
 // These are the definitions for Service 0, the lowest priority service.
 // Every Events and Services application must have a Service 0. Further
 // services are added in numeric sequence (1,2,3,...) with increasing
 // priorities
-// the header file with the public function prototypes
-#define SERV_0_HEADER "TestHarnessService0.h"
+// // the header file with the public function prototypes
+// #define SERV_0_HEADER "TestHarnessService0.h"
+// // the name of the Init function
+// #define SERV_0_INIT InitTestHarnessService0
+// // the name of the run function
+// #define SERV_0_RUN RunTestHarnessService0
+// // How big should this services Queue be?
+// #define SERV_0_QUEUE_SIZE 5
+
+// redefining for game state machine
+#define SERV_0_HEADER "GameService.h"
 // the name of the Init function
-#define SERV_0_INIT InitTestHarnessService0
+#define SERV_0_INIT InitGameService
 // the name of the run function
-#define SERV_0_RUN RunTestHarnessService0
+#define SERV_0_RUN RunGameService
 // How big should this services Queue be?
-#define SERV_0_QUEUE_SIZE 5
+#define SERV_0_QUEUE_SIZE 15
 
 /****************************************************************************/
 // The following sections are used to define the parameters for each of the
@@ -63,7 +72,7 @@
 // the name of the run function
 #define SERV_1_RUN RunLEDService
 // How big should this services Queue be?
-#define SERV_1_QUEUE_SIZE 5
+#define SERV_1_QUEUE_SIZE 10
 #endif
 
 /****************************************************************************/
@@ -258,8 +267,10 @@ typedef enum
   ES_INIT,                  /* used to transition from initial pseudo-state */
   ES_TIMEOUT,               /* signals that the timer has expired */
   ES_SHORT_TIMEOUT,         /* signals that a short timer has expired */
+  
   /* User-defined events start here */
   ES_NEW_KEY,               /* signals a new key received from terminal */
+
   ES_LOCK,
   ES_UNLOCK,
   ES_ENTRY,                 /* used as example in HSMTemplate, adding here for successful CMake */
@@ -270,7 +281,30 @@ typedef enum
   ES_LED_ADD_CHAR,
   ES_LED_UPDATE_STEP,
 
-  ES_MESSAGE_START,
+  ES_GAME_START,
+  ES_GAME_STARTUP_COMPLETE,
+  ES_GAME_COUNTDOWN_COMPLETE,
+  ES_ASSIGN_TASK,
+
+  ES_CARROT_BUTTON_PRESSED,
+  ES_CARROT_TASK_COMPLETE,
+
+  ES_POT_CHANGED,
+  ES_STIR_TASK_COMPLETE,
+
+  ES_HAND_DETECTED,
+  ES_HEAT_TASK_COMPLETE,
+
+  ES_TASK_COMPLETE,
+  ES_TASK_FAILED,
+  ES_GAME_WON,
+  ES_GAME_LOST,
+  ES_GAME_INACTIVE,
+
+  ES_DISPENSE_TREAT,
+  ES_PARTICIPATION_AWARD,
+
+  ES_TEST_MODE
 }ES_EventType_t;
 
 /****************************************************************************/
@@ -314,10 +348,10 @@ typedef enum
 // Unlike services, any combination of timers may be used and there is no
 // priority in servicing them
 #define TIMER_UNUSED ((pPostFunc)0)
-#define TIMER0_RESP_FUNC TIMER_UNUSED
-#define TIMER1_RESP_FUNC TIMER_UNUSED
-#define TIMER2_RESP_FUNC TIMER_UNUSED
-#define TIMER3_RESP_FUNC TIMER_UNUSED
+#define TIMER0_RESP_FUNC PostGameService
+#define TIMER1_RESP_FUNC PostGameService
+#define TIMER2_RESP_FUNC PostGameService
+#define TIMER3_RESP_FUNC PostGameService
 #define TIMER4_RESP_FUNC TIMER_UNUSED
 #define TIMER5_RESP_FUNC TIMER_UNUSED
 #define TIMER6_RESP_FUNC TIMER_UNUSED
@@ -331,7 +365,7 @@ typedef enum
 // #define TIMER13_RESP_FUNC TIMER_UNUSED
 #define TIMER14_RESP_FUNC PostLEDService
 // #define TIMER14_RESP_FUNC TIMER_UNUSED
-#define TIMER15_RESP_FUNC PostTestHarnessService0
+#define TIMER15_RESP_FUNC PostGameService
 
 /****************************************************************************/
 // Give the timer numbers symbolc names to make it easier to move them
@@ -340,8 +374,12 @@ typedef enum
 // the timer number matches where the timer event will be routed
 // These symbolic names should be changed to be relevant to your application
 
-#define SERVICE0_TIMER 15
+#define GAME_TIMER         0
+#define INACTIVITY_TIMER   1
+#define INTERACTION_TIMER  2
+#define SEQUENCE_TIMER     3
+
 #define SERVICE1_TIMER 14
-#define SERVICE2_TIMER 13
+#define GAME_SERVICE_TIMER 15
 
 #endif /* ES_CONFIGURE_H */
