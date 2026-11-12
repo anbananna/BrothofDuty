@@ -33,7 +33,7 @@
 /****************************************************************************/
 // This macro determines that nuber of services that are *actually* used in
 // a particular application. It will vary in value from 1 to MAX_NUM_SERVICES
-#define NUM_SERVICES 2
+#define NUM_SERVICES 3
 
 /****************************************************************************/
 // These are the definitions for Service 0, the lowest priority service.
@@ -77,15 +77,26 @@
 
 /****************************************************************************/
 // These are the definitions for Service 2
+// #if NUM_SERVICES > 2
+// // the header file with the public function prototypes
+// #define SERV_2_HEADER "MessageService.h"
+// // the name of the Init function
+// #define SERV_2_INIT InitMessageService
+// // the name of the run function
+// #define SERV_2_RUN RunMessageService
+// // How big should this services Queue be?
+// #define SERV_2_QUEUE_SIZE 5
+// #endif
+
 #if NUM_SERVICES > 2
 // the header file with the public function prototypes
-#define SERV_2_HEADER "MessageService.h"
+#define SERV_2_HEADER "InputService.h"
 // the name of the Init function
-#define SERV_2_INIT InitMessageService
+#define SERV_2_INIT InitInputService
 // the name of the run function
-#define SERV_2_RUN RunMessageService
+#define SERV_2_RUN RunInputService
 // How big should this services Queue be?
-#define SERV_2_QUEUE_SIZE 5
+#define SERV_2_QUEUE_SIZE 10
 #endif
 
 /****************************************************************************/
@@ -277,10 +288,12 @@ typedef enum
   ES_ENTRY_HISTORY,         /* example in HSMTemplate */
   ES_EXIT,                  /* example in HSMTemplate */
 
+  // led service events
   ES_LED_INIT_STEP,
   ES_LED_ADD_CHAR,
   ES_LED_UPDATE_STEP,
 
+  // game events
   ES_GAME_START,
   ES_GAME_STARTUP_COMPLETE,
   ES_GAME_COUNTDOWN_COMPLETE,
@@ -304,7 +317,16 @@ typedef enum
   ES_DISPENSE_TREAT,
   ES_PARTICIPATION_AWARD,
 
-  ES_TEST_MODE
+  // hardware inputs
+  ES_INPUT_START_PRESSED,
+  ES_INPUT_START_RELEASED,
+
+  ES_INPUT_CARROT_PRESSED,
+  ES_INPUT_CARROT_RELEASED,
+
+  ES_INPUT_POT_CHANGED,
+
+  ES_INPUT_IR_CHANGED
 }ES_EventType_t;
 
 /****************************************************************************/
@@ -361,7 +383,8 @@ typedef enum
 #define TIMER10_RESP_FUNC TIMER_UNUSED
 #define TIMER11_RESP_FUNC TIMER_UNUSED
 #define TIMER12_RESP_FUNC TIMER_UNUSED
-#define TIMER13_RESP_FUNC PostMessageService
+// #define TIMER13_RESP_FUNC PostMessageService
+#define TIMER13_RESP_FUNC PostInputService
 // #define TIMER13_RESP_FUNC TIMER_UNUSED
 #define TIMER14_RESP_FUNC PostLEDService
 // #define TIMER14_RESP_FUNC TIMER_UNUSED
@@ -379,7 +402,8 @@ typedef enum
 #define INTERACTION_TIMER  2
 #define SEQUENCE_TIMER     3
 
-#define SERVICE1_TIMER 14
+#define INPUT_POLL_TIMER   13
+#define SERVICE1_TIMER     14
 #define GAME_SERVICE_TIMER 15
 
 #endif /* ES_CONFIGURE_H */

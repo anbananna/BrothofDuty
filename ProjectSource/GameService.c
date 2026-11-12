@@ -19,6 +19,7 @@
 #include "LEDService.h"
 #include "ES_Port.h"
 #include "dbprintf.h"
+#include "InputService.h"
 
 // C libraries
 #include <xc.h>
@@ -72,17 +73,25 @@ typedef enum
    Module Variables
  *******************************/
 static uint8_t MyPriority;
+
 static GameState_t CurrentState = GAME_INITIALIZING;
 static GameTask_t CurrentTask;
+
 static uint8_t GameProgress = 0;
 static uint8_t GameTime = 60;
+
 static uint8_t TargetButtonPresses = 0;
 static uint8_t DetectedButtonPresses = 0;
+
 static uint16_t TargetPotValue = 0;
 static uint16_t DetectedPotValue = 0;
+
 static uint16_t TargetHandValue = 0;
 static uint16_t DetectedHandValue = 0;
 
+static uint16_t TestCarrotPressCount = 0;
+static uint16_t TestPotValue = 0;
+static uint16_t TestIRValue = 0;
 
 /*******************************
    Private Function Prototypes
@@ -154,18 +163,38 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             switch (ThisEvent.EventType)
             {
                 case ES_GAME_START:
+                case ES_INPUT_START_PRESSED:
                     DB_printf("GAME STARTED\r\n");
                     StartNewGame();
                     CurrentState = GAME_STARTUP;
                     break;
 
                 case ES_NEW_KEY:
-                    // Temporary keyboard debugging
                     if (ThisEvent.EventParam == 't')
                     {
                         CurrentState = GAME_TEST;
-                        DB_printf("TEST MODE\r\n");
+
+                        TestCarrotPressCount = 0;
+
+                        TestPotValue = QueryPotValue();
+                        TestIRValue = QueryIRValue();
+
+                        DB_printf("\r\n");
+                        DB_printf("============================\r\n");
+                        DB_printf("       INPUT TEST MODE      \r\n");
+                        DB_printf("============================\r\n");
+
+                        DB_printf("Start button:    RB3\r\n");
+                        DB_printf("Carrot button:   RB2\r\n");
+                        DB_printf("Potentiometer:   AN12\r\n");
+                        DB_printf("IR sensor:       AN11\r\n");
+
+                        DB_printf("Initial POT: %u\r\n", TestPotValue);
+                        DB_printf("Initial IR: %u\r\n", TestIRValue);
+
+                        DB_printf("Press X to exit test mode\r\n");
                     }
+
                     break;
 
                 default:
@@ -258,33 +287,58 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
 
         case GAME_TEST:
-            if (ThisEvent.EventType == ES_NEW_KEY)
+
+            switch (ThisEvent.EventType)
             {
-                switch (ThisEvent.EventParam)
-                {
-                    case 'c':
-                        CurrentTask = TASK_CUT_CARROT;
-                        CurrentState = GAME_CUT_CARROT;
-                        break;
+                case ES_INPUT_START_PRESSED:
+                    DB_printf("\r\n[BUTTON TEST]");
+                    DB_printf(" START BUTTON PRESSED - RB3\r\n");
+                    break;
 
-                    case 's':
-                        CurrentTask = TASK_STIR_POT;
-                        CurrentState = GAME_STIR_POT;
-                        break;
+                case ES_INPUT_START_RELEASED:
+                    DB_printf("[BUTTON TEST]");
+                    DB_printf(" START BUTTON RELEASED - RB3\r\n");
+                    break;
 
-                    case 'h':
-                        CurrentTask = TASK_HEAT_COIL;
-                        CurrentState = GAME_HEAT_COIL;
-                        break;
+                case ES_INPUT_CARROT_PRESSED:
+                    TestCarrotPressCount++;
+                    DB_printf("\r\n[BUTTON TEST]");
+                    DB_printf(" CARROT BUTTON PRESSED - RB2\r\n");
+                    DB_printf("Total presses: %u\r\n", TestCarrotPressCount);
+                    break;
 
-                    case 'w':
+                case ES_INPUT_CARROT_RELEASED:
+                    DB_printf("[BUTTON TEST]");
+                    DB_printf(" CARROT BUTTON RELEASED - RB2\r\n");
+                    break;
+
+                case ES_INPUT_POT_CHANGED:
+                    TestPotValue = ThisEvent.EventParam;
+                    DB_printf("\r\n[POTENTIOMETER TEST]\r\n");
+                    DB_printf("Raw ADC: %u / 1023\r\n", TestPotValue);
+                    DB_printf("Position: %u%%\r\n", (uint16_t)((TestPotValue * 100U) / 1023U));
+                    break;
+
+                case ES_INPUT_IR_CHANGED:
+                    TestIRValue = ThisEvent.EventParam;
+                    DB_printf("\r\n[IR SENSOR TEST]\r\n");
+                    DB_printf("Raw ADC: %u / 1023\r\n", TestIRValue);
+                    DB_printf("Relative reading: %u%%\r\n", (uint16_t)((TestIRValue * 100U) / 1023U));
+                    break;
+
+                case ES_NEW_KEY:
+                    if (ThisEvent.EventParam == 'x')
+                    {
+                        DB_printf("\r\nEXITING INPUT TEST MODE\r\n");
+                        EnterWelcomeMode();
                         CurrentState = GAME_WELCOME;
-                        break;
+                    }
+                    break;
 
-                    default:
-                        break;
-                }
+                default:
+                    break;
             }
+
             break;
 
         default:
