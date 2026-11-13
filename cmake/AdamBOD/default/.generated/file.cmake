@@ -27,6 +27,7 @@ set(AdamBOD_default_default_XC32_FILE_TYPE_compile
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/ES_Timers.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/FontStuff.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/LEDService.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/NeoPixelService.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/PIC32_AD_Lib.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/PIC32_SPI_HAL_Starter.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../FrameworkSource/PWM_PIC32.c"

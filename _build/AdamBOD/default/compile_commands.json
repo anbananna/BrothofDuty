@@ -67,6 +67,12 @@
 },
 {
   "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
   "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c",
   "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c",
   "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c.o"
