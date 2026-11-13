@@ -29,7 +29,7 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdbool.h>
-
+#include "dbprintf.h"
 
 /****************************************************************************
    Module Defines
@@ -167,27 +167,28 @@ ES_Event_t RunInputService(ES_Event_t ThisEvent)
     switch (ThisEvent.EventType)
     {
         case ES_INIT:
-
-            // Initialize all hardware
-            if (InitInputHardware())
-            {
-                ADCInitialized = true;
-                InitializeButtonStates();
-                // Start periodic input polling
-                ES_Timer_InitTimer(
-                    INPUT_POLL_TIMER,
-                    INPUT_POLL_PERIOD
-                );
+            DB_printf("INPUT SERVICE INITIALIZING\r\n");
+            ADCInitialized = InitInputHardware();
+            InitializeButtonStates();
+            ES_Timer_InitTimer(INPUT_POLL_TIMER, INPUT_POLL_PERIOD);
+            if (ADCInitialized) {
+                // ADC is ready.
+            } else {
+                // Buttons will still work; analog inputs are unavailable.
             }
+
             break;
 
         case ES_TIMEOUT:
             // Only respond to our own polling timer
+            // DB_printf("INPUT POLL TIMER FIRED\r\n");
             if (ThisEvent.EventParam == INPUT_POLL_TIMER)
             {
+                PollButtons();
+
                 if (ADCInitialized)
                 {
-                    PollInputs();
+                    PollAnalogInputs();
                 }
 
                 // Restart polling timer
@@ -216,6 +217,10 @@ ES_Event_t RunInputService(ES_Event_t ThisEvent)
 
 static bool InitInputHardware(void)
 {
+    // Configure RB2 and RB3 as digital pins
+    ANSELBbits.ANSB2 = 0;       // RB2 = Carrot button
+    ANSELBbits.ANSB3 = 0;       // RB3 = Start button
+    
     // Enable analog functionality on AN11 and AN12
     ANSELBbits.ANSB13 = 1;      // AN11 = IR sensor <--> RB13
     ANSELBbits.ANSB12 = 1;      // AN12 = Potentiometer <--> RB12
@@ -268,7 +273,9 @@ static void InitializeButtonStates(void)
 static void PollInputs(void)
 {
     PollButtons();
-    PollAnalogInputs();
+    if (ADCInitialized) {
+        PollAnalogInputs();
+    }
 }
 
 /****************************************************************************

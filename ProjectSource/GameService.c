@@ -1,4 +1,3 @@
-
 /****************************************************************************
  Module
      GameService.c
@@ -102,7 +101,6 @@ static void AssignNewTask(void);
 static void UpdateGameProgress(void);
 static void EnterWelcomeMode(void);
 
-
 /*******************************
    Initialization
  *******************************/
@@ -128,7 +126,6 @@ bool InitGameService(uint8_t Priority)
     return ES_PostToService(MyPriority, ThisEvent);
 }
 
-
 /*******************************
    Post Function
  *******************************/
@@ -137,13 +134,17 @@ bool PostGameService(ES_Event_t ThisEvent)
     return ES_PostToService(MyPriority, ThisEvent);
 }
 
-
 /*******************************
    Run Function
  *******************************/
 ES_Event_t RunGameService(ES_Event_t ThisEvent)
 {
     ES_Event_t ReturnEvent;
+
+    DB_printf("GameService: State=%d, Event=%d, Param=%u\r\n",
+          CurrentState,
+          ThisEvent.EventType,
+          ThisEvent.EventParam);
 
     ReturnEvent.EventType = ES_NO_EVENT;
     ReturnEvent.EventParam = 0;
@@ -153,23 +154,28 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
         case GAME_INITIALIZING:
             if (ThisEvent.EventType == ES_INIT)
             {
-                DB_printf("GAME INITIALIZED\r\n");
                 EnterWelcomeMode();
                 CurrentState = GAME_WELCOME;
+                DB_printf("GAME INITIALIZED\r\n");
             }
             break;
 
         case GAME_WELCOME:
+            DB_printf("In GAME WELCOME\r\n");
             switch (ThisEvent.EventType)
             {
                 case ES_GAME_START:
                 case ES_INPUT_START_PRESSED:
                     DB_printf("GAME STARTED\r\n");
                     StartNewGame();
-                    CurrentState = GAME_STARTUP;
+                    // CurrentState = GAME_STARTUP;
+                    CurrentState = GAME_WELCOME; // For now, stay in welcome until countdown is implemented
                     break;
 
                 case ES_NEW_KEY:
+                    // Preserve the original key before any deferral modifications
+                    DB_printf("KEY RECEIVED: %c\r\n", (char)ThisEvent.EventParam);
+
                     if (ThisEvent.EventParam == 't')
                     {
                         CurrentState = GAME_TEST;
@@ -184,17 +190,11 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                         DB_printf("       INPUT TEST MODE      \r\n");
                         DB_printf("============================\r\n");
 
-                        DB_printf("Start button:    RB3\r\n");
-                        DB_printf("Carrot button:   RB2\r\n");
-                        DB_printf("Potentiometer:   AN12\r\n");
-                        DB_printf("IR sensor:       AN11\r\n");
-
                         DB_printf("Initial POT: %u\r\n", TestPotValue);
                         DB_printf("Initial IR: %u\r\n", TestIRValue);
 
                         DB_printf("Press X to exit test mode\r\n");
                     }
-
                     break;
 
                 default:
@@ -203,6 +203,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
 
         case GAME_STARTUP:
+            DB_printf("GAME STARTUP\r\n");
             switch (ThisEvent.EventType)
             {
                 case ES_GAME_STARTUP_COMPLETE:
@@ -214,6 +215,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
 
         case GAME_COUNTDOWN:
+            DB_printf("GAME COUNTDOWN\r\n");
             if (ThisEvent.EventType == ES_GAME_COUNTDOWN_COMPLETE)
             {
                 CurrentState = GAME_SELECT_TASK;
@@ -229,6 +231,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
 
         case GAME_SELECT_TASK:
+            DB_printf("GAME SELECT TASK\r\n");
             if (ThisEvent.EventType == ES_ASSIGN_TASK)
             {
                 AssignNewTask();
@@ -249,6 +252,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
         case GAME_CUT_CARROT:
             // Carrot interaction logic will go here
+            DB_printf("CUT CARROT!\r\n");
             if (ThisEvent.EventType == ES_CARROT_TASK_COMPLETE)
             {
                 UpdateGameProgress();
@@ -258,6 +262,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
         case GAME_STIR_POT:
             // Potentiometer interaction logic will go here
+            DB_printf("STIR POT!\r\n");
             if (ThisEvent.EventType == ES_STIR_TASK_COMPLETE)
             {
                 UpdateGameProgress();
@@ -267,6 +272,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
         case GAME_HEAT_COIL:
             // IR interaction logic will go here
+            DB_printf("HEAT COIL!\r\n");
             if (ThisEvent.EventType == ES_HEAT_TASK_COMPLETE)
             {
                 UpdateGameProgress();
@@ -276,18 +282,20 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
         case GAME_WINNING:
             // TREAT dispensing logic will go here
+            DB_printf("YOU'RE A WINNER!");
             break;
 
         case GAME_LOSING:
             // Participation award logic will go here
+            DB_printf("NEXT TIME\r\n");
             break;
 
         case GAME_INACTIVE:
             // Inactivity timeout logic will go here
+            DB_printf("NO INPUT\r\n");
             break;
 
         case GAME_TEST:
-
             switch (ThisEvent.EventType)
             {
                 case ES_INPUT_START_PRESSED:
@@ -345,7 +353,6 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
     }
 
-
     /*******************************
        Global Timer Handling
      *******************************/
@@ -391,7 +398,6 @@ static void AssignNewTask(void)
     // Replace with a better pseudo-random generator.
 
     CurrentTask = (GameTask_t)(rand() % 3);
-
     DB_printf("NEW TASK: %d\r\n", CurrentTask);
 }
 
