@@ -426,7 +426,7 @@ static void EnterWelcomeMode(void)
     GameProgress = 0;
     GameTime = 60;
 
-    DB_printf("WELCOME TO KARL'S KITCHEN\r\n");
+    DB_printf("BROTH OF DUTY\r\n");
 
     // LED welcome display will be implemented
     // through the LEDService interface.

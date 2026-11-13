@@ -216,12 +216,9 @@ ES_Event_t RunInputService(ES_Event_t ThisEvent)
 
 static bool InitInputHardware(void)
 {
-    // Configure all analog inputs as digital initially
-    AD1PCFG = 0xFFFF;
-
     // Enable analog functionality on AN11 and AN12
-    AD1PCFGbits.PCFG11 = 0;
-    AD1PCFGbits.PCFG12 = 0;
+    ANSELBbits.ANSB13 = 1;      // AN11 = IR sensor <--> RB13
+    ANSELBbits.ANSB12 = 1;      // AN12 = Potentiometer <--> RB12
 
     // Configure button pins as digital inputs
     TRISBbits.TRISB2 = 1;       // Carrot button
@@ -457,7 +454,7 @@ static bool DifferenceExceeds(uint16_t NewValue, uint16_t OldValue, uint16_t Thr
      Sends input events to GameService.
 ****************************************************************************/
 
-static void PostInputEvent(ES_EventType_t EventType, int16_t EventParam)
+static void PostInputEvent(ES_EventType_t EventType, uint16_t EventParam)
 {
     ES_Event_t NewEvent;
 
