@@ -4,5 +4,12 @@
     "mplab.clangd.arguments": [
         "--header-insertion=never"
     ],
-    "mplab.clangd.path": "c:\\Program Files\\Microchip\\xc32\\v6.00\\bin\\xc32-clangd.exe"
+    "mplab.clangd.path": "c:\\Program Files\\Microchip\\xc32\\v6.00\\bin\\xc32-clangd.exe",
+    "memory-inspector.debugTypes": [
+        "arm-debugger",
+        "embedded-debug",
+        "gdb",
+        "gdbtarget",
+        "mplab-core-da"
+    ]
 }
