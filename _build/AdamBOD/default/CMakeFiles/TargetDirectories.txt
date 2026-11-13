@@ -1,0 +1,5 @@
+C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default/CMakeFiles/AdamBOD_default_default_XC32_compile.dir
+C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default/CMakeFiles/AdamBOD_default_image_ysv_s_3R.dir
+C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default/CMakeFiles/AdamBOD_default_Bin2Hex.dir
+C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default/CMakeFiles/edit_cache.dir
+C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default/CMakeFiles/rebuild_cache.dir

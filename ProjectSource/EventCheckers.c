@@ -115,8 +115,6 @@ bool Check4Keystroke(void)
     ThisEvent.EventParam  = GetNewKey();
     ES_PostAll(ThisEvent);
 
-    (void)PostGameService(ThisEvent);
-
     return true;
   }
   return false;
