@@ -31,19 +31,12 @@
 #include <xc.h>
 
 /*----------------------------- Module Defines ----------------------------*/
-// Set to 1 to drive the servos from Tera Term keys 1-6 for bench testing
-#define SERVO_KEY_TEST          1
-
-// Set to 1 to run every servo for a few seconds at power-up (debug)
-#define SERVO_STARTUP_TEST      1
-#define SERVO_TEST_DURATION     3000    // ms
-#define SERVO_TEST_PRINT_DELAY  500     // ms before printing registers
 
 // PWM channel numbers (OCx)
 #define DISPENSE_CHANNEL        2
 #define SOUP_CHANNEL            3
 #define CARROT_CHANNEL          4
-#define NUM_PWM_CHANNELS        4   // library configures channels 1..N
+#define NUM_PWM_CHANNELS        4 
 
 #define SERVO_FREQ_HZ           50
 
@@ -51,7 +44,7 @@
 #define TICKS_PER_MS            2500
 #define PULSE_CENTER            3750    // 1.5 ms
 
-// Continuous servos: 1.5 ms is stop, +/- 0.5 ms is full speed either way
+// Continuous servos, 1.5 ms is stop, +/- 0.5 ms is full speed either way
 #define CONT_SPEED_SPAN         1250    // 0.5 ms
 #define DISPENSE_SPEED          60      // percent, -100..100; flip sign to reverse
 
@@ -67,6 +60,7 @@ static void InitServoHardware(void);
 static void SetContinuousSpeed(uint8_t Channel, int16_t SpeedPercent);
 static void StopContinuous(uint8_t Channel);
 static void SetCarrotAngle(uint8_t Degrees);
+static void PrintPwmDebug(void);
 
 /*---------------------------- Module Variables ---------------------------*/
 static uint8_t MyPriority;
@@ -115,11 +109,13 @@ ES_Event_t RunServoService(ES_Event_t ThisEvent)
         case ES_SERVO_CARROT_OPEN:
             DB_printf("Carrot Open\r\n");
             SetCarrotAngle(CARROT_OPEN_DEG);
+            PrintPwmDebug();
             break;
 
         case ES_SERVO_CARROT_CLOSE:
             DB_printf("Carrot Close\r\n");
             SetCarrotAngle(CARROT_CLOSED_DEG);
+            PrintPwmDebug();
             break;
 
         case ES_SERVO_SOUP_SPEED:
@@ -207,6 +203,24 @@ static void SetContinuousSpeed(uint8_t Channel, int16_t SpeedPercent)
                     ((int32_t)SpeedPercent * CONT_SPEED_SPAN) / 100;
 
     PWMOperate_SetPulseWidthOnChannel((uint16_t)Pulse, Channel);
+}
+
+// DEBUG: live PWM state for the carrot channel (OC4 on RA4).
+// Two TMR2 reads should differ if Timer2 is running.
+static void PrintPwmDebug(void)
+{
+    uint16_t Tmr1 = (uint16_t)TMR2;
+    // Wait ~5 us (100 core-timer ticks); Timer2 should advance ~12 counts
+    uint32_t Start = _CP0_GET_COUNT();
+    while ((uint32_t)(_CP0_GET_COUNT() - Start) < 100)
+    {
+    }
+    uint16_t Tmr2 = (uint16_t)TMR2;
+    DB_printf("PWM: OC4RS=%u OC4CON=0x%x RPA4R=%u TRISA4=%u\r\n",
+              (uint16_t)OC4RS, (uint16_t)OC4CON,
+              (uint16_t)RPA4R, (uint16_t)TRISAbits.TRISA4);
+    DB_printf("PWM: PR2=%u T2CON=0x%x TMR2=%u,%u\r\n",
+              (uint16_t)PR2, (uint16_t)T2CON, Tmr1, Tmr2);
 }
 
 static void StopContinuous(uint8_t Channel)
