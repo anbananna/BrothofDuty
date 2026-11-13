@@ -109,7 +109,7 @@
 // the name of the run function
 #define SERV_3_RUN RunTestHarnessService3
 // How big should this services Queue be?
-#define SERV_3_QUEUE_SIZE 3
+#define SERV_3_QUEUE_SIZE 5
 #endif
 
 /****************************************************************************/
@@ -295,8 +295,6 @@ typedef enum
 
   // game events
   ES_GAME_START,
-  ES_GAME_STARTUP_COMPLETE,
-  ES_GAME_COUNTDOWN_COMPLETE,
   ES_ASSIGN_TASK,
 
   ES_CARROT_BUTTON_PRESSED,
@@ -316,6 +314,14 @@ typedef enum
 
   ES_DISPENSE_TREAT,
   ES_PARTICIPATION_AWARD,
+
+  // servo commands (ServoService)
+  ES_SERVO_CARROT_OPEN,
+  ES_SERVO_CARROT_CLOSE,
+  ES_SERVO_SOUP_SPEED,      /* EventParam = (int16_t) speed, -100..100 */
+  ES_SERVO_SOUP_STOP,
+  ES_SERVO_DISPENSE_START,
+  ES_SERVO_DISPENSE_STOP,
 
   // hardware inputs
   ES_INPUT_START_PRESSED,
@@ -374,8 +380,8 @@ typedef enum
 #define TIMER1_RESP_FUNC PostGameService
 #define TIMER2_RESP_FUNC PostGameService
 #define TIMER3_RESP_FUNC PostGameService
-#define TIMER4_RESP_FUNC TIMER_UNUSED
-#define TIMER5_RESP_FUNC TIMER_UNUSED
+#define TIMER4_RESP_FUNC PostGameService
+#define TIMER5_RESP_FUNC PostServoService
 #define TIMER6_RESP_FUNC TIMER_UNUSED
 #define TIMER7_RESP_FUNC TIMER_UNUSED
 #define TIMER8_RESP_FUNC TIMER_UNUSED
@@ -401,6 +407,8 @@ typedef enum
 #define INACTIVITY_TIMER   1
 #define INTERACTION_TIMER  2
 #define SEQUENCE_TIMER     3
+#define SENSOR_PRINT_TIMER 4
+#define SERVO_TEST_TIMER   5
 
 #define INPUT_POLL_TIMER   13
 #define SERVICE1_TIMER     14

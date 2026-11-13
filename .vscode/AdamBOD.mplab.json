@@ -1,0 +1,45 @@
+{
+    "version": "1.9",
+    "configurations": [
+        {
+            "name": "default",
+            "id": "conf1",
+            "device": "PIC32MX170F256B",
+            "imagePath": "./out/AdamBOD/default.elf",
+            "packs": [
+                {
+                    "name": "PIC32MX_DFP",
+                    "vendor": "Microchip",
+                    "version": "1.7.380"
+                }
+            ],
+            "fileSet": "default",
+            "toolchain": "default-XC32"
+        }
+    ],
+    "propertyGroups": [
+        {
+            "name": "default-XC32",
+            "type": "toolchain",
+            "provider": "microchip.toolchains:xc32@6.00",
+            "properties": {
+                "compiler.extra-include-directories": [
+                    "ProjectHeaders",
+                    "c:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders",
+                    "c:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders"
+                ]
+            }
+        }
+    ],
+    "fileSets": [
+        {
+            "name": "default",
+            "files": [
+                {
+                    "include": "**/*",
+                    "exclude": "**/@(build|_build|out|cmake|.vscode)/**/*"
+                }
+            ]
+        }
+    ]
+}
