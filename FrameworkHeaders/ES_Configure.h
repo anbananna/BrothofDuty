@@ -103,13 +103,13 @@
 // These are the definitions for Service 3
 #if NUM_SERVICES > 3
 // the header file with the public function prototypes
-#define SERV_3_HEADER "TestHarnessService3.h"
+#define SERV_3_HEADER "ServoService.h"
 // the name of the Init function
-#define SERV_3_INIT InitTestHarnessService3
+#define SERV_3_INIT InitServoService
 // the name of the run function
-#define SERV_3_RUN RunTestHarnessService3
+#define SERV_3_RUN RunServoService
 // How big should this services Queue be?
-#define SERV_3_QUEUE_SIZE 3
+#define SERV_3_QUEUE_SIZE 10
 #endif
 
 /****************************************************************************/
@@ -401,6 +401,9 @@ typedef enum
 // #define TIMER14_RESP_FUNC TIMER_UNUSED
 #define TIMER15_RESP_FUNC PostGameService
 
+#define TIMER4_RESP_FUNC PostServoService
+#define TIMER5_RESP_FUNC PostServoService
+
 /****************************************************************************/
 // Give the timer numbers symbolc names to make it easier to move them
 // to different timers if the need arises. Keep these definitions close to the
@@ -416,5 +419,8 @@ typedef enum
 #define INPUT_POLL_TIMER   13
 #define SERVICE1_TIMER     14
 #define GAME_SERVICE_TIMER 15
+// Servo Service timers
+#define SERVO_CARROT_TIMER    4
+#define SERVO_DISPENSE_TIMER  5
 
 #endif /* ES_CONFIGURE_H */
