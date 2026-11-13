@@ -33,7 +33,7 @@
 /****************************************************************************/
 // This macro determines that nuber of services that are *actually* used in
 // a particular application. It will vary in value from 1 to MAX_NUM_SERVICES
-#define NUM_SERVICES 3
+#define NUM_SERVICES 4
 
 /****************************************************************************/
 // These are the definitions for Service 0, the lowest priority service.
@@ -317,7 +317,8 @@ typedef enum
   ES_DISPENSE_TREAT,
   ES_PARTICIPATION_AWARD,
 
-  // hardware inputs
+
+ // hardware inputs
   ES_INPUT_START_PRESSED,
   ES_INPUT_START_RELEASED,
 
@@ -325,9 +326,19 @@ typedef enum
   ES_INPUT_CARROT_RELEASED,
 
   ES_INPUT_POT_CHANGED,
+  ES_INPUT_IR_CHANGED,
 
-  ES_INPUT_IR_CHANGED
-}ES_EventType_t;
+// servo service events
+  ES_SERVO_CARROT_OPEN,
+  ES_SERVO_CARROT_CLOSE,
+  ES_SERVO_SOUP_SPEED,
+  ES_SERVO_SOUP_STOP,
+  ES_SERVO_DISPENSE_START,
+  ES_SERVO_DISPENSE_STOP
+
+} ES_EventType_t;
+
+
 
 /****************************************************************************/
 // These are the definitions for the Distribution lists. Each definition
