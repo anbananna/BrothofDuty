@@ -1,0 +1,146 @@
+[
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\DM_DisplayStarter.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\DM_DisplayStarter.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\DM_DisplayStarter.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\DM_DisplayStarter.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_CheckEvents.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_CheckEvents.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_CheckEvents.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_CheckEvents.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_DeferRecall.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_DeferRecall.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_DeferRecall.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_DeferRecall.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Framework.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Framework.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Framework.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Framework.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_LookupTables.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_LookupTables.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_LookupTables.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_LookupTables.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Port.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Port.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Port.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Port.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_PostList.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_PostList.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_PostList.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_PostList.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Queue.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Queue.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Queue.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Queue.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Timers.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Timers.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Timers.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\ES_Timers.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\FontStuff.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\FontStuff.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\FontStuff.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\FontStuff.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\LEDService.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\LEDService.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\LEDService.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\LEDService.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\NeoPixelService.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_AD_Lib.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_SPI_HAL_Starter.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_SPI_HAL_Starter.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_SPI_HAL_Starter.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PIC32_SPI_HAL_Starter.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PWM_PIC32.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PWM_PIC32.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PWM_PIC32.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\PWM_PIC32.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\circular_buffer_no_modulo_threadsafe.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\circular_buffer_no_modulo_threadsafe.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\circular_buffer_no_modulo_threadsafe.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\circular_buffer_no_modulo_threadsafe.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\dbprintf.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\dbprintf.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\dbprintf.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\dbprintf.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\terminal.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\terminal.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\terminal.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\FrameworkSource\\terminal.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\EventCheckers.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\EventCheckers.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\EventCheckers.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\EventCheckers.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\GameService.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\GameService.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\GameService.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\GameService.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\InputService.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\InputService.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\InputService.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\InputService.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\ServoService.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\ServoService.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\ServoService.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\ServoService.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\TestHarnessService0.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\TestHarnessService0.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\TestHarnessService0.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\TestHarnessService0.c.o"
+},
+{
+  "directory": "C:/Users/adamt/Documents/GitHub/BrothofDuty/_build/AdamBOD/default",
+  "command": "c:\\PROGRA~1\\MICROC~1\\xc32\\v6.00\\bin\\xc32-gcc.exe -DXPRJ_default=default -D__DEBUG -IC:/Users/adamt/Documents/GitHub/BrothofDuty/cmake/AdamBOD/default/../../../ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/ProjectHeaders -Ic:/Users/adamt/Documents/GitHub/BrothofDuty/FrameworkHeaders -x c -fdiagnostics-color=always -g -x c -c -mprocessor=32MX170F256B -mdfp=C:/Users/adamt/.mchp_packs/Microchip/PIC32MX_DFP/1.7.380 -o CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\main.c.o -c C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\main.c",
+  "file": "C:\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\main.c",
+  "output": "CMakeFiles\\AdamBOD_default_default_XC32_compile.dir\\C_\\Users\\adamt\\Documents\\GitHub\\BrothofDuty\\ProjectSource\\main.c.o"
+}
+]

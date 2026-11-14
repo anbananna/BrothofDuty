@@ -50,6 +50,7 @@
 #include "../FrameworkHeaders/ES_LookupTables.h"
 #include "../FrameworkHeaders/ES_Timers.h"
 #include "../FrameworkHeaders/ES_Port.h"
+#include "../FrameworkHeaders/dbprintf.h"
 /*--------------------------- External Variables --------------------------*/
 
 /*----------------------------- Module Defines ----------------------------*/

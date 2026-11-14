@@ -3,7 +3,7 @@
      InputService.c
 
  Description
-     Handles all user input hardware for Karl's Kitchen.
+     Handles all user input hardware
 
      Inputs:
        RB2  - Carrot Button
@@ -222,8 +222,8 @@ static bool InitInputHardware(void)
     ANSELBbits.ANSB3 = 0;       // RB3 = Start button
     
     // Enable analog functionality on AN11 and AN12
-    ANSELBbits.ANSB13 = 1;      // AN11 = IR sensor <--> RB13
-    ANSELBbits.ANSB12 = 1;      // AN12 = Potentiometer <--> RB12
+    ANSELBbits.ANSB13 = 1;      // AN11 = IR sensor = RB13
+    ANSELBbits.ANSB12 = 1;      // AN12 = Potentiometer = RB12
 
     // Configure button pins as digital inputs
     TRISBbits.TRISB2 = 1;       // Carrot button

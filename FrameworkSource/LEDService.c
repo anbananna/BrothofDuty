@@ -24,17 +24,21 @@ static unsigned char CharQueue[CHAR_QUEUE_SIZE];
 static uint8_t CharQueueHead = 0;
 static uint8_t CharQueueTail = 0;
 static uint8_t CharQueueCount = 0;
+static uint8_t PendingNumber;
+static bool NumberPending = false;
 
 static bool PostNextLEDService(ES_EventType_t EventType);
 static bool EnqueueChar(unsigned char NextChar);
 static bool DequeueChar(unsigned char *NextChar);
 static void StartNextChar(void);
+static void StartNextDisplayItem(void);
 
 static uint16_t InitCallCount = 0;
 
 // ES_LED_INIT_STEP,
 // ES_LED_ADD_CHAR,
 // ES_LED_UPDATE_STEP,
+// ES_LED_SET_NUMBER,
 
 bool InitLEDService(uint8_t Priority)
 {
@@ -52,6 +56,19 @@ bool InitLEDService(uint8_t Priority)
 bool PostLEDService(ES_Event_t ThisEvent)
 {
     return ES_PostToService(MyPriority, ThisEvent);
+}
+
+bool PostLEDDisplayNumber(uint8_t Number)
+{
+    ES_Event_t ThisEvent;
+
+    if (Number > 99U) {
+        return false;
+    }
+
+    ThisEvent.EventType = ES_LED_SET_NUMBER;
+    ThisEvent.EventParam = Number;
+    return PostLEDService(ThisEvent);
 }
 
 
@@ -72,8 +89,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
                 if (InitComplete) {
                     DB_printf("DISPLAY INITIALIZATION FINISHED\r\n");
                     CurrentState = LED_READY;
-                    // (void)EnqueueChar('A');
-                    StartNextChar();
+                    StartNextDisplayItem();
                 }
                 else {
                     (void)PostNextLEDService(ES_LED_INIT_STEP);
@@ -95,21 +111,35 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             }
 
             // Only start processing if the display is idle
-            if ((CurrentState == LED_READY) && (CharQueueCount > 0)){
-                StartNextChar();
+            if (CurrentState == LED_READY){
+                StartNextDisplayItem();
             }
 
             break;
         }
 
+        case ES_LED_SET_NUMBER:{
+            if (ThisEvent.EventParam <= 99U) {
+                PendingNumber = (uint8_t)ThisEvent.EventParam;
+                NumberPending = true;
+
+                if (CurrentState == LED_READY) {
+                    StartNextDisplayItem();
+                }
+            } else {
+                DB_printf("LED number must be between 0 and 99\r\n");
+            }
+            break;
+        }
+
         case ES_LED_UPDATE_STEP:{
-            DB_printf("\r\nLED SERVICE UPDATE STEP\r\n");
+            // DB_printf("\r\nLED SERVICE UPDATE STEP\r\n");
 
             if (CurrentState == LED_UPDATING){
                 if (DM_TakeDisplayUpdateStep())
                 {
                     CurrentState = LED_READY;
-                    StartNextChar();
+                    StartNextDisplayItem();
                 } else {
                     // Wait before processing the next display update
                     ES_Timer_InitTimer(SERVICE1_TIMER, 1);
@@ -188,4 +218,31 @@ static void StartNextChar(void) {
 
         (void)PostNextLEDService((ES_EventType_t)ES_LED_UPDATE_STEP);
     }
+}
+
+static void StartNextDisplayItem(void)
+{
+    if (CurrentState != LED_READY) {
+        return;
+    }
+
+    if (NumberPending) {
+        NumberPending = false;
+        DM_ClearDisplayBuffer();
+
+        if (PendingNumber >= 10U) {
+            DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber / 10U)));
+        }
+        DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber % 10U)));
+
+        CurrentState = LED_UPDATING;
+        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
+            CurrentState = LED_READY;
+            NumberPending = true;
+            DB_printf("ERROR: Could not post LED display update\r\n");
+        }
+        return;
+    }
+
+    StartNextChar();
 }
