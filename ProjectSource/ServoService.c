@@ -141,6 +141,10 @@ ES_Event_t RunServoService(ES_Event_t ThisEvent)
             StopContinuous(DISPENSE_CHANNEL);
             break;
 
+        // case ES_NEW_KEY:
+        //     DB_printf("KEY RECEIVED: %c\r\n", (char)ThisEvent.EventParam);
+        //     break;
+
         default:
             break;
     }

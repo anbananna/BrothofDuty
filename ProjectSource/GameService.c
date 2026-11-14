@@ -35,12 +35,14 @@
 #define MAX_GAME_PROGRESS       15
 #define GAME_DURATION           60000
 #define INACTIVITY_DURATION     20000
-#define INTERACTION_DURATION    500
+#define INTERACTION_DURATION    2000
 #define COUNTDOWN_DURATION      1000    // ms per countdown step
 #define COUNTDOWN_SECONDS       3
 
 // Carrot task
-#define CARROT_PRESSES_REQUIRED 3
+#define CARROT_PRESSES_MIN      2U
+#define CARROT_PRESSES_MAX      5U
+#define CARROT_BLINK_DURATION   500U
 #define CARROT_LED              LATAbits.LATA3
 #define CARROT_LED_TRIS         TRISAbits.TRISA3
 #define LED_ON                  1
@@ -50,27 +52,31 @@
 #define START_LED               LATBbits.LATB10
 #define START_LED_TRIS          TRISBbits.TRISB10
 
-// Stir pot task: pot must sit inside this window (10-bit ADC, 3.3 V ref)
-#define ADC_COUNTS_FROM_MV(mv)  ((uint16_t)(((uint32_t)(mv) * 1023U) / 3300U))
-#define STIR_WINDOW_LOW         ADC_COUNTS_FROM_MV(1600)   // ~496
-#define STIR_WINDOW_HIGH        ADC_COUNTS_FROM_MV(1800)   // ~558
+// Stir pot task target ranges across the 10-bit ADC's usable range
 #define SOUP_STIR_SPEED         50      // percent, -100..100
-#define STIR_HOLD_DURATION      1000    // ms the pot must stay in the window
 
 // Heat coil task: hand must hold the IR (ITR20001, RB13) reading in a
 // window. Closer hand -> more reflected light -> higher voltage.
 // The window is relative to an ambient baseline taken when the task starts
 // (no hand over the sensor), so room lighting cancels out.
-// Window = baseline + HEAT_RISE_TARGET +/- HEAT_TOLERANCE_COUNTS.
+// Window = baseline + selected rise target +/- HEAT_TOLERANCE_COUNTS.
 // R8 = 100k. 1 count = ~3.2 mV.
 #define HEAT_RISE_TARGET        150     // counts above ambient at the right height
 #define HEAT_TOLERANCE_COUNTS   20
+#define HEAT_TARGET_VARIANT_COUNT 3U
+#define HEAT_TARGET_STEP_COUNTS   40U
 // If the task starts with a hand already over the sensor, the baseline would
 // be too high; cap it so the window stays reachable
 #define HEAT_BASELINE_MAX       150
-#define HEAT_HOLD_DURATION      1000    // ms the hand must stay in the window
 #define SENSOR_PRINT_PERIOD     500     // ms between IR readouts during the task
 #define HEAT_SERIAL_READOUT     1       // set 0 to stop printing IR values
+
+static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
+{
+    HEAT_RISE_TARGET - HEAT_TARGET_STEP_COUNTS,
+    HEAT_RISE_TARGET,
+    HEAT_RISE_TARGET + HEAT_TARGET_STEP_COUNTS
+};
 
 // Coil "glow" color for the NeoPixels (R, G, B)
 #define COIL_RED                200
@@ -78,7 +84,7 @@
 #define COIL_BLUE               0
 
 // Pause between finishing one task and starting the next
-#define TASK_GAP_DURATION       1000
+#define TASK_GAP_DURATION       2500
 
 
 /*******************************
@@ -107,8 +113,30 @@ typedef enum
 {
     TASK_CUT_CARROT = 0,
     TASK_STIR_POT,
-    TASK_HEAT_COIL
+    TASK_HEAT_COIL,
+    TASK_COUNT
 } GameTask_t;
+
+typedef enum
+{
+    STIR_TARGET_LOW = 0,
+    STIR_TARGET_MID,
+    STIR_TARGET_HIGH,
+    STIR_TARGET_COUNT
+} StirTarget_t;
+
+typedef struct
+{
+    uint16_t Low;
+    uint16_t High;
+} StirTargetRange_t;
+
+static const StirTargetRange_t StirTargetRanges[STIR_TARGET_COUNT] =
+{
+    { 225U, 287U },
+    { 481U, 543U },
+    { 737U, 799U }
+};
 
 
 /*******************************
@@ -120,14 +148,21 @@ static GameState_t CurrentState = GAME_INITIALIZING;
 static GameTask_t CurrentTask;
 
 static uint8_t GameProgress = 0;
-static uint8_t GameTime = 60;
+static uint8_t GameTime = GAME_DURATION / 1000;
 static uint8_t CountdownRemaining = 0;
+static uint8_t LEDCountdownRemaining = 0;
+
+static GameTask_t LastTask = TASK_COUNT;
 
 static uint8_t TargetButtonPresses = 0;
 static uint8_t DetectedButtonPresses = 0;
+static uint8_t CarrotBlinksRemaining = 0;
+static bool CarrotBlinkOn = false;
+static bool CarrotInputEnabled = false;
 
-static uint16_t TargetPotValue = 0;
 static uint16_t DetectedPotValue = 0;
+static StirTarget_t CurrentStirTarget;
+static StirTarget_t LastStirTarget = STIR_TARGET_COUNT;
 static bool SoupStirring = false;
 static bool CoilHeating = false;
 static uint16_t HeatBaseline = 0;       // ambient IR reading at task start
@@ -149,6 +184,7 @@ static void UpdateGameProgress(void);
 static void CompleteTask(void);
 static void EnterWelcomeMode(void);
 static void EnterCarrotTask(void);
+static void StartCarrotBlinkSequence(void);
 static void EnterStirTask(void);
 static void UpdateSoupStirring(uint16_t PotReading);
 static void EnterHeatTask(void);
@@ -218,7 +254,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
 
         case GAME_WELCOME:
-            DB_printf("In GAME WELCOME\r\n");
+            // DB_printf("In GAME WELCOME\r\n");
             switch (ThisEvent.EventType)
             {
                 case ES_GAME_START:
@@ -235,10 +271,13 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     break;
 
                 case ES_NEW_KEY:
+                {
                     // Preserve the original key before any deferral modifications
-                    DB_printf("KEY RECEIVED: %c\r\n", (char)ThisEvent.EventParam);
+                    unsigned char Key = (unsigned char)ThisEvent.EventParam;
+                    DB_printf("ES_NEW_KEY received with -> %c <- in Service 0\r\n",
+                            Key);
 
-                    if (ThisEvent.EventParam == 't')
+                    if (Key == 't')
                     {
                         CurrentState = GAME_TEST;
 
@@ -259,6 +298,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                         DB_printf("Press X to exit test mode\r\n");
                     }
                     break;
+                }
 
                 default:
                     break;
@@ -322,30 +362,81 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             switch (ThisEvent.EventType)
             {
                 case ES_INPUT_CARROT_PRESSED:
-                    // Ignore extra presses once the carrot is already cut
-                    if (DetectedButtonPresses < CARROT_PRESSES_REQUIRED)
+                    if (CarrotInputEnabled)
                     {
-                        DetectedButtonPresses++;
+                        // Finish after the required presses and an interaction interval without a press.
+                        ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
+
+                        if (DetectedButtonPresses <= TargetButtonPresses)
+                        {
+                            DetectedButtonPresses++;
+                        }
                         DB_printf("CARROT CHOP %u / %u\r\n",
                                   DetectedButtonPresses,
-                                  CARROT_PRESSES_REQUIRED);
+                                  TargetButtonPresses);
+                    }
+                    break;
 
-                        if (DetectedButtonPresses >= CARROT_PRESSES_REQUIRED)
+                case ES_TIMEOUT:
+                    if ((ThisEvent.EventParam == SEQUENCE_TIMER) &&
+                        !CarrotInputEnabled)
+                    {
+                        if (CarrotBlinkOn)
                         {
                             CARROT_LED = LED_OFF;
-                            PostServoCommand(ES_SERVO_CARROT_OPEN);
+                            CarrotBlinkOn = false;
+                            CarrotBlinksRemaining--;
 
+                            if (CarrotBlinksRemaining == 0U)
+                            {
+                                CarrotInputEnabled = true;
+                                DB_printf("BLINKING COMPLETE. Press the carrot button %u times.\r\n",
+                                          TargetButtonPresses);
+                            }
+                            else
+                            {
+                                ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_BLINK_DURATION);
+                            }
+                        }
+                        else
+                        {
+                            CARROT_LED = LED_ON;
+                            CarrotBlinkOn = true;
+                            ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_BLINK_DURATION);
+                        }
+                    }
+                    else if ((ThisEvent.EventParam == INTERACTION_TIMER) &&
+                             CarrotInputEnabled)
+                    {
+                        if (DetectedButtonPresses == TargetButtonPresses)
+                        {
                             ES_Event_t DoneEvent;
                             DoneEvent.EventType = ES_CARROT_TASK_COMPLETE;
                             DoneEvent.EventParam = 0;
-                            PostGameService(DoneEvent);
+                            if (!PostGameService(DoneEvent))
+                            {
+                                DB_printf("ERROR: Could not post carrot task completion\r\n");
+                            }
+                        }
+                        else if (DetectedButtonPresses > TargetButtonPresses)
+                        {
+                            DB_printf("TOO MANY PRESSES. Try the carrot task again.\r\n");
+                            DetectedButtonPresses = 0;
+                            StartCarrotBlinkSequence();
                         }
                     }
                     break;
 
                 case ES_CARROT_TASK_COMPLETE:
-                    DB_printf("CARROT CUT!\r\n");
-                    CompleteTask();
+                    if (CarrotInputEnabled &&
+                        (DetectedButtonPresses == TargetButtonPresses))
+                    {
+                        DB_printf("CARROT CUT!\r\n");
+                        CARROT_LED = LED_OFF;
+                        PostServoCommand(ES_SERVO_CARROT_OPEN);
+                        ES_Timer_StopTimer(INTERACTION_TIMER);
+                        CompleteTask();
+                    }
                     break;
 
                 default:
@@ -434,7 +525,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
         case GAME_WINNING:
             // TREAT dispensing logic will go here
-            DB_printf("YOU'RE A WINNER!");
+            DB_printf("YOU'RE A WINNER!\r\n");
             break;
 
         case GAME_LOSING:
@@ -512,14 +603,35 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             break;
     }
 
-    /*******************************
-       Global Timer Handling
-     *******************************/
-
-    if (ThisEvent.EventType == ES_TIMEOUT)
+    if ((ThisEvent.EventType == ES_NEW_KEY) &&
+        ((unsigned char)ThisEvent.EventParam == 'l'))
     {
-        // Timer handling will be implemented
-        // after the individual game states are established.
+        LEDCountdownRemaining = GameTime;
+        DB_printf("LED COUNTDOWN: %u\r\n", LEDCountdownRemaining);
+
+        if (!PostLEDDisplayNumber(LEDCountdownRemaining))
+        {
+            DB_printf("ERROR: Could not post LED countdown value\r\n");
+        }
+
+        ES_Timer_InitTimer(GAME_SERVICE_TIMER, COUNTDOWN_DURATION);
+    }
+    else if ((ThisEvent.EventType == ES_TIMEOUT) &&
+             (ThisEvent.EventParam == GAME_SERVICE_TIMER) &&
+             (LEDCountdownRemaining > 0U))
+    {
+        LEDCountdownRemaining--;
+        DB_printf("LED COUNTDOWN: %u\r\n", LEDCountdownRemaining);
+
+        if (!PostLEDDisplayNumber(LEDCountdownRemaining))
+        {
+            DB_printf("ERROR: Could not post LED countdown value\r\n");
+        }
+
+        if (LEDCountdownRemaining > 0U)
+        {
+            ES_Timer_InitTimer(GAME_SERVICE_TIMER, COUNTDOWN_DURATION);
+        }
     }
 
     return ReturnEvent;
@@ -548,19 +660,38 @@ static void InitHWPins(void)
 // Called on every entry to the carrot task
 static void EnterCarrotTask(void)
 {
+    TargetButtonPresses = (uint8_t)(CARROT_PRESSES_MIN +
+        (rand() % (CARROT_PRESSES_MAX - CARROT_PRESSES_MIN + 1U)));
     DetectedButtonPresses = 0;
-    CARROT_LED = LED_ON;
+    StartCarrotBlinkSequence();
     PostServoCommand(ES_SERVO_CARROT_CLOSE);   // always reset carrot to 0 deg
-    DB_printf("CUT CARROT! Press the button %u times\r\n",
-              CARROT_PRESSES_REQUIRED);
+    DB_printf("CUT CARROT! Wait for %u blinks.\r\n", TargetButtonPresses);
+}
+
+
+static void StartCarrotBlinkSequence(void)
+{
+    CarrotBlinksRemaining = TargetButtonPresses;
+    CarrotBlinkOn = true;
+    CarrotInputEnabled = false;
+    CARROT_LED = LED_ON;
+    ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_BLINK_DURATION);
 }
 
 
 // Called on every entry to the stir pot task
 static void EnterStirTask(void)
 {
-    DB_printf("STIR POT! Turn the pot to %u-%u (1.6-1.8 V)\r\n",
-              STIR_WINDOW_LOW, STIR_WINDOW_HIGH);
+    // Choose one of three ranges, excluding the previous soup-task range.
+    do
+    {
+        CurrentStirTarget = (StirTarget_t)(rand() % STIR_TARGET_COUNT);
+    } while (CurrentStirTarget == LastStirTarget);
+
+    LastStirTarget = CurrentStirTarget;
+    DB_printf("STIR POT! Set knob to ADC range %u-%u\r\n",
+              (unsigned int)StirTargetRanges[CurrentStirTarget].Low,
+              (unsigned int)StirTargetRanges[CurrentStirTarget].High);
 
     // Start from a known state: soup servo off
     SoupStirring = false;
@@ -575,8 +706,9 @@ static void EnterStirTask(void)
 // Soup servo runs while the pot is inside the window, stops outside it
 static void UpdateSoupStirring(uint16_t PotReading)
 {
-    bool InWindow = (PotReading >= STIR_WINDOW_LOW) &&
-                    (PotReading <= STIR_WINDOW_HIGH);
+    StirTargetRange_t Target = StirTargetRanges[CurrentStirTarget];
+    bool InWindow = (PotReading >= Target.Low) &&
+                    (PotReading <= Target.High);
 
     if (InWindow && !SoupStirring)
     {
@@ -588,8 +720,8 @@ static void UpdateSoupStirring(uint16_t PotReading)
         ServoEvent.EventParam = (uint16_t)SOUP_STIR_SPEED;
         PostServoService(ServoEvent);
 
-        // Start the hold timer; task completes if it expires while in range
-        ES_Timer_InitTimer(INTERACTION_TIMER, STIR_HOLD_DURATION);
+        // Task completes if the pot stays in range for the interaction interval.
+        ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
     }
     else if (!InWindow && SoupStirring)
     {
@@ -606,23 +738,35 @@ static void UpdateSoupStirring(uint16_t PotReading)
 // Heat window bounds, relative to the ambient baseline
 static uint16_t HeatWindowLow(void)
 {
-    return HeatBaseline + HEAT_RISE_TARGET - HEAT_TOLERANCE_COUNTS;
+    return TargetHandValue - HEAT_TOLERANCE_COUNTS;
 }
 
 static uint16_t HeatWindowHigh(void)
 {
-    return HeatBaseline + HEAT_RISE_TARGET + HEAT_TOLERANCE_COUNTS;
+    return TargetHandValue + HEAT_TOLERANCE_COUNTS;
 }
 
 
 // Called on every entry to the heat coil task
 static void EnterHeatTask(void)
 {
+    uint16_t TargetRise;
+
     // Ambient baseline, assumes no hand over the sensor right now
     HeatBaseline = QueryIRValue();
+    if (HeatBaseline > HEAT_BASELINE_MAX)
+    {
+        HeatBaseline = HEAT_BASELINE_MAX;
+    }
 
-    DB_printf("HEAT COIL! Baseline %u, hold hand over sensor: %u-%u\r\n",
-              HeatBaseline, HeatWindowLow(), HeatWindowHigh());
+    TargetRise = HeatTargetRiseOptions[rand() % HEAT_TARGET_VARIANT_COUNT];
+    TargetHandValue = HeatBaseline + TargetRise;
+
+    DB_printf("HEAT COIL! Baseline %u, target %u, hold hand over sensor: %u-%u\r\n",
+              (unsigned int)HeatBaseline,
+              (unsigned int)TargetHandValue,
+              (unsigned int)HeatWindowLow(),
+              (unsigned int)HeatWindowHigh());
 
     CoilHeating = false;
     SetCoilGlow(false);
@@ -639,8 +783,9 @@ static void EnterHeatTask(void)
 // NeoPixels glow while the hand is inside the window, off outside it
 static void UpdateCoilHeating(uint16_t IRReading)
 {
-    bool InWindow = (IRReading >= HeatWindowLow()) &&
-                    (IRReading <= HeatWindowHigh());
+    DetectedHandValue = IRReading;
+    bool InWindow = (DetectedHandValue >= HeatWindowLow()) &&
+                    (DetectedHandValue <= HeatWindowHigh());
 
     if (InWindow && !CoilHeating)
     {
@@ -648,8 +793,8 @@ static void UpdateCoilHeating(uint16_t IRReading)
         DB_printf("HAND IN RANGE (%u) - HEATING\r\n", IRReading);
         SetCoilGlow(true);
 
-        // Start the hold timer; task completes if it expires while in range
-        ES_Timer_InitTimer(INTERACTION_TIMER, HEAT_HOLD_DURATION);
+        // Task completes if the hand stays in range for the interaction interval.
+        ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
     }
     else if (!InWindow && CoilHeating)
     {
@@ -690,6 +835,8 @@ static void StartNewGame(void)
 {
     GameProgress = 0;
     GameTime = 60;
+    LastTask = TASK_COUNT;
+    LastStirTarget = STIR_TARGET_COUNT;
 
     DetectedButtonPresses = 0;
 
@@ -701,10 +848,13 @@ static void StartNewGame(void)
 
 static void AssignNewTask(void)
 {
-    // Temporary task selection.
-    // Replace with a better pseudo-random generator.
 
-    CurrentTask = (GameTask_t)(rand() % 3);
+    do
+    {
+        CurrentTask = (GameTask_t)(rand() % TASK_COUNT);
+    } while (CurrentTask == LastTask);
+
+    LastTask = CurrentTask;
     DB_printf("NEW TASK: %d\r\n", CurrentTask);
 }
 

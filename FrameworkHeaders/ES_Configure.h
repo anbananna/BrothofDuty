@@ -292,6 +292,7 @@ typedef enum
   ES_LED_INIT_STEP,
   ES_LED_ADD_CHAR,
   ES_LED_UPDATE_STEP,
+  ES_LED_SET_NUMBER,
 
   // game events
   ES_GAME_START,
