@@ -16,14 +16,38 @@
 #define COUNTDOWN_ELLIPSIS_ROW 4U
 #define COUNTDOWN_ELLIPSIS_BITS 0x49U
 
+// Three-column digits stored in bits 3..1, sized for a 4x4 quadrant.
+static const uint8_t TimerDigitRows[10][4] = {
+    {0xE, 0xA, 0xA, 0xE},
+    {0x4, 0xC, 0x4, 0xE},
+    {0xE, 0x2, 0x4, 0xE},
+    {0xE, 0x2, 0x6, 0xE},
+    {0xA, 0xA, 0xE, 0x2},
+    {0xE, 0x8, 0xE, 0xE},
+    {0x6, 0x8, 0xE, 0xA},
+    {0xE, 0x2, 0x4, 0x4},
+    {0xE, 0xA, 0xE, 0xA},
+    {0xE, 0xA, 0xE, 0x2}
+};
+
 typedef enum {
     LED_INITIALIZE,
     LED_READY,
     LED_UPDATING
 } LEDState_t;
 
+typedef enum {
+    LED_PENDING_NONE,
+    LED_PENDING_CLEAR,
+    LED_PENDING_COUNTDOWN,
+    LED_PENDING_CONGRATS,
+    LED_PENDING_GO,
+    LED_PENDING_NUMBER
+} LEDPendingDisplay_t;
+
 static uint8_t MyPriority;
 static LEDState_t CurrentState = LED_INITIALIZE;
+static LEDPendingDisplay_t PendingDisplay = LED_PENDING_NONE;
 
 static unsigned char CharQueue[CHAR_QUEUE_SIZE];
 static uint8_t CharQueueHead = 0;
@@ -31,26 +55,15 @@ static uint8_t CharQueueTail = 0;
 static uint8_t CharQueueCount = 0;
 static uint8_t PendingNumber;
 static uint8_t PendingCountdown;
-static bool NumberPending = false;
-static bool CountdownPending = false;
-static bool CongratsPending = false;
-static bool GoPending = false;
-static bool ClearPending = false;
 
 static bool PostNextLEDService(ES_EventType_t EventType);
 static bool EnqueueChar(unsigned char NextChar);
 static bool DrawCenteredText(const char *Text);
 static bool DrawCenteredCountdown(uint8_t Remaining);
-static bool DequeueChar(unsigned char *NextChar);
+static bool DrawTimerQuadrants(uint8_t Number);
+static bool BeginDisplayUpdate(void);
 static void StartNextChar(void);
 static void StartNextDisplayItem(void);
-
-static uint16_t InitCallCount = 0;
-
-// ES_LED_INIT_STEP,
-// ES_LED_ADD_CHAR,
-// ES_LED_UPDATE_STEP,
-// ES_LED_SET_NUMBER,
 
 bool InitLEDService(uint8_t Priority)
 {
@@ -157,12 +170,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
         case ES_LED_ADD_CHAR:{
             unsigned char NewChar = (unsigned char)ThisEvent.EventParam;
 
-            // Always enqueue the character, even while scrolling
-            if (CharQueueCount < CHAR_QUEUE_SIZE){
-                CharQueue[CharQueueTail] = NewChar;
-                CharQueueTail = (CharQueueTail + 1) % CHAR_QUEUE_SIZE;
-                CharQueueCount++;
-            } else {
+            if (!EnqueueChar(NewChar)) {
                 DB_printf("LED character queue full\r\n");
             }
 
@@ -177,17 +185,11 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
         case ES_LED_SET_NUMBER:{
             if (ThisEvent.EventParam <= 99U) {
                 PendingNumber = (uint8_t)ThisEvent.EventParam;
-                NumberPending = true;
-                CountdownPending = false;
-                GoPending = false;
-                CongratsPending = false;
-                ClearPending = false;
+                PendingDisplay = LED_PENDING_NUMBER;
 
                 if (CurrentState == LED_READY) {
                     StartNextDisplayItem();
                 }
-            } else {
-                DB_printf("LED number must be between 0 and 99\r\n");
             }
             break;
         }
@@ -196,11 +198,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             CharQueueHead = 0;
             CharQueueTail = 0;
             CharQueueCount = 0;
-            NumberPending = false;
-            CountdownPending = false;
-            ClearPending = false;
-            GoPending = false;
-            CongratsPending = true;
+            PendingDisplay = LED_PENDING_CONGRATS;
 
             if (CurrentState == LED_READY) {
                 StartNextDisplayItem();
@@ -211,11 +209,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             CharQueueHead = 0;
             CharQueueTail = 0;
             CharQueueCount = 0;
-            NumberPending = false;
-            CountdownPending = false;
-            GoPending = false;
-            CongratsPending = false;
-            ClearPending = true;
+            PendingDisplay = LED_PENDING_CLEAR;
 
             if (CurrentState == LED_READY) {
                 StartNextDisplayItem();
@@ -226,11 +220,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             CharQueueHead = 0;
             CharQueueTail = 0;
             CharQueueCount = 0;
-            NumberPending = false;
-            CountdownPending = false;
-            CongratsPending = false;
-            ClearPending = false;
-            GoPending = true;
+            PendingDisplay = LED_PENDING_GO;
 
             if (CurrentState == LED_READY) {
                 StartNextDisplayItem();
@@ -245,11 +235,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
                 CharQueueTail = 0;
                 CharQueueCount = 0;
                 PendingCountdown = (uint8_t)ThisEvent.EventParam;
-                CountdownPending = true;
-                NumberPending = false;
-                CongratsPending = false;
-                GoPending = false;
-                ClearPending = false;
+                PendingDisplay = LED_PENDING_COUNTDOWN;
 
                 if (CurrentState == LED_READY) {
                     StartNextDisplayItem();
@@ -391,34 +377,32 @@ static bool DrawCenteredCountdown(uint8_t Remaining)
 }
 
 
-static bool DequeueChar(unsigned char *NextChar) {
-    if ((CharQueueCount == 0) || (NextChar == NULL)) {
-        return false;
-    }
-
-    *NextChar = CharQueue[CharQueueHead];
-
-    CharQueueHead++;
-    if (CharQueueHead >= CHAR_QUEUE_SIZE) {
-        CharQueueHead = 0;
-    }
-    CharQueueCount--;
-    return true;
-}
-
 static void StartNextChar(void) {
     unsigned char NextChar;
-    if (CurrentState != LED_READY) {
+    if ((CurrentState != LED_READY) || (CharQueueCount == 0U)) {
         return;
     }
-    if (DequeueChar(&NextChar)) {
-        DM_ScrollDisplayBuffer(SCROLL_COLS);
-        DM_AddChar2DisplayBuffer(NextChar);
 
-        CurrentState = LED_UPDATING;
-
-        (void)PostNextLEDService((ES_EventType_t)ES_LED_UPDATE_STEP);
+    NextChar = CharQueue[CharQueueHead];
+    if (!BeginDisplayUpdate()) {
+        DB_printf("ERROR: Could not post LED character update\r\n");
+        return;
     }
+
+    CharQueueHead = (uint8_t)((CharQueueHead + 1U) % CHAR_QUEUE_SIZE);
+    CharQueueCount--;
+    DM_ScrollDisplayBuffer(SCROLL_COLS);
+    DM_AddChar2DisplayBuffer(NextChar);
+}
+
+static bool BeginDisplayUpdate(void)
+{
+    CurrentState = LED_UPDATING;
+    if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
+        CurrentState = LED_READY;
+        return false;
+    }
+    return true;
 }
 
 static void StartNextDisplayItem(void)
@@ -427,89 +411,112 @@ static void StartNextDisplayItem(void)
         return;
     }
 
-    if (ClearPending) {
-        ClearPending = false;
+    if (PendingDisplay == LED_PENDING_CLEAR) {
+        PendingDisplay = LED_PENDING_NONE;
         DM_ClearDisplayBuffer();
-        CurrentState = LED_UPDATING;
-        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
-            CurrentState = LED_READY;
-            ClearPending = true;
+        if (!BeginDisplayUpdate()) {
+            PendingDisplay = LED_PENDING_CLEAR;
             DB_printf("ERROR: Could not post LED display clear\r\n");
         }
         return;
     }
 
-    if (CountdownPending) {
-        CountdownPending = false;
+    if (PendingDisplay == LED_PENDING_COUNTDOWN) {
+        PendingDisplay = LED_PENDING_NONE;
         DM_ClearDisplayBuffer();
         if (!DrawCenteredCountdown(PendingCountdown))
         {
-            CountdownPending = true;
+            PendingDisplay = LED_PENDING_COUNTDOWN;
             DB_printf("ERROR: Could not draw LED countdown step\r\n");
             return;
         }
 
-        CurrentState = LED_UPDATING;
-        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
-            CurrentState = LED_READY;
-            CountdownPending = true;
+        if (!BeginDisplayUpdate()) {
+            PendingDisplay = LED_PENDING_COUNTDOWN;
             DB_printf("ERROR: Could not post LED countdown update\r\n");
         }
         return;
     }
 
-    if (CongratsPending) {
-        CongratsPending = false;
+    if (PendingDisplay == LED_PENDING_CONGRATS) {
+        PendingDisplay = LED_PENDING_NONE;
         DM_ClearDisplayBuffer();
         if (!DrawCenteredText("D O N E")) {
             DB_printf("ERROR: Could not draw congrats text\r\n");
             return;
         }
 
-        CurrentState = LED_UPDATING;
-        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
-            CurrentState = LED_READY;
-            CongratsPending = true;
+        if (!BeginDisplayUpdate()) {
+            PendingDisplay = LED_PENDING_CONGRATS;
             DB_printf("ERROR: Could not post congrats display update\r\n");
         }
         return;
     }
 
-    if (GoPending) {
-        GoPending = false;
+    if (PendingDisplay == LED_PENDING_GO) {
+        PendingDisplay = LED_PENDING_NONE;
         DM_ClearDisplayBuffer();
         if (!DrawCenteredText("G O")) {
             DB_printf("ERROR: Could not draw GO text\r\n");
             return;
         }
 
-        CurrentState = LED_UPDATING;
-        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
-            CurrentState = LED_READY;
-            GoPending = true;
+        if (!BeginDisplayUpdate()) {
+            PendingDisplay = LED_PENDING_GO;
             DB_printf("ERROR: Could not post GO display update\r\n");
         }
         return;
     }
 
-    if (NumberPending) {
-        NumberPending = false;
+    if (PendingDisplay == LED_PENDING_NUMBER) {
+        PendingDisplay = LED_PENDING_NONE;
         DM_ClearDisplayBuffer();
 
-        if (PendingNumber >= 10U) {
-            DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber / 10U)));
-            DM_ScrollDisplayBuffer(8U);
+        if (!DrawTimerQuadrants(PendingNumber)) {
+            PendingDisplay = LED_PENDING_NUMBER;
+            DB_printf("ERROR: Could not draw game timer\r\n");
+            return;
         }
-        DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber % 10U)));
 
-        CurrentState = LED_UPDATING;
-        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
-            CurrentState = LED_READY;
-            NumberPending = true;
+        if (!BeginDisplayUpdate()) {
+            PendingDisplay = LED_PENDING_NUMBER;
             DB_printf("ERROR: Could not post LED display update\r\n");
         }
         return;
     }
 
     StartNextChar();
+}
+
+static bool DrawTimerQuadrants(uint8_t Number)
+{
+    uint8_t DigitRow;
+    uint8_t Tens = (uint8_t)(Number / 10U);
+    uint8_t Ones = (uint8_t)(Number % 10U);
+
+    if (Number > 99U) {
+        return false;
+    }
+
+    for (DigitRow = 0; DigitRow < 4U; DigitRow++)
+    {
+        uint32_t RowData =
+            (uint32_t)TimerDigitRows[Tens][DigitRow] << 28U;
+        if (!DM_PutDataIntoBufferRow(RowData, DigitRow))
+        {
+            return false;
+        }
+    }
+
+    for (DigitRow = 0; DigitRow < 4U; DigitRow++)
+    {
+        uint32_t RowData =
+            (uint32_t)TimerDigitRows[Ones][DigitRow] << 24U;
+        if (!DM_PutDataIntoBufferRow(RowData, (uint8_t)(DigitRow + 4U)))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }

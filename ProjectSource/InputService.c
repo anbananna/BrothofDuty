@@ -41,8 +41,8 @@
 // Button debounce
 #define DEBOUNCE_SAMPLES        3
 
-// Analog change thresholds
-#define POT_CHANGE_THRESHOLD    8
+// A one-count potentiometer change counts as user movement.
+#define POT_CHANGE_THRESHOLD    1
 #define IR_CHANGE_THRESHOLD     8
 
 // ADC channels

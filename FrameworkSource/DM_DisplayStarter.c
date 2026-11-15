@@ -22,7 +22,7 @@
 /*----------------------------- Module Defines ----------------------------*/
 #define NumModules 4
 #define NUM_ROWS   8
-#define NUM_ROWS_IN_FONT 5
+#define NUM_ROWS_IN_FONT 6
 #define DM_START_SHUTDOWN 0x0C00
 #define DM_END_SHUTDOWN   0x0C01
 #define DM_DISABLE_CODEB  0x0900
