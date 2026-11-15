@@ -32,7 +32,7 @@
 /*******************************
    Module Defines
  *******************************/
-#define MAX_GAME_PROGRESS       5
+#define MAX_GAME_PROGRESS       8
 #define GAME_DURATION           60000
 #define GAME_TIMER_TICK         1000U
 #define INACTIVITY_DURATION     20000
@@ -54,6 +54,10 @@
 #define RESTART_DISPLAY_OFF_DURATION 2000U
 #define RESTART_SCROLL_INTERVAL     250U
 #define RESTART_SCROLL_PADDING      8U
+
+#define WELCOME_DISPLAY_OFF_DURATION 2000U
+#define WELCOME_SCROLL_INTERVAL     250U
+#define WELCOME_SCROLL_PADDING      8U
 
 // Start button LED (the switch itself is on RB3)
 #define START_LED               LATBbits.LATB10
@@ -83,7 +87,7 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
 };
 
 // Pause between finishing one task and starting the next
-#define TASK_GAP_DURATION       2500
+#define TASK_GAP_DURATION       500
 
 #define WIN_CELEBRATION_DURATION 5000U
 #define WIN_ANIMATION_STEP       100U
@@ -174,7 +178,10 @@ static bool CarrotServoOpening = false;
 static bool CarrotServoClosing = false;
 
 static const char RestartingMessage[] = "restarting....";
+static const char WelcomeMessage[] = "Welcome to broth of duty!";
 static uint8_t RestartScrollIndex = 0;
+static uint8_t WelcomeScrollIndex = 0;
+static bool LossDisplayed = false;
 
 static uint16_t DetectedPotValue = 0;
 static StirTarget_t CurrentStirTarget;
@@ -311,7 +318,43 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             // DB_printf("In GAME WELCOME\r\n");
             switch (ThisEvent.EventType)
             {
-                case ES_GAME_START:
+                case ES_TIMEOUT:
+                    // Scroll the welcome message on repeat until start is pressed
+                    if (ThisEvent.EventParam == GAME_SERVICE_TIMER)
+                    {
+                        const uint8_t MessageLength =
+                            (uint8_t)(sizeof(WelcomeMessage) - 1U);
+                        const uint8_t TotalCharacters =
+                            (uint8_t)(MessageLength + WELCOME_SCROLL_PADDING);
+
+                        if (WelcomeScrollIndex < TotalCharacters)
+                        {
+                            ES_Event_t LEDCharEvent;
+                            LEDCharEvent.EventType = ES_LED_ADD_CHAR;
+                            LEDCharEvent.EventParam =
+                                (WelcomeScrollIndex < MessageLength) ?
+                                (uint8_t)WelcomeMessage[WelcomeScrollIndex] : ' ';
+
+                            if (PostLEDService(LEDCharEvent))
+                            {
+                                WelcomeScrollIndex++;
+                            }
+                            else
+                            {
+                                DB_printf("ERROR: Could not post welcome message character\r\n");
+                            }
+                            ES_Timer_InitTimer(GAME_SERVICE_TIMER,
+                                               WELCOME_SCROLL_INTERVAL);
+                        }
+                        else
+                        {
+                            // Message fully scrolled off: pause, then repeat
+                            WelcomeScrollIndex = 0;
+                            ES_Timer_InitTimer(GAME_SERVICE_TIMER,
+                                               WELCOME_DISPLAY_OFF_DURATION);
+                        }
+                    }
+                    break;
                 case ES_INPUT_START_PRESSED:
                     DB_printf("GAME STARTED\r\n");
                     START_LED = LED_OFF;
@@ -378,7 +421,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     GameTime = GAME_DURATION / 1000U;
                     GameTimerActive = true;
                     DB_printf("GAME TIMER STARTED: %u\r\n", GameTime);
-                    if (!PostLEDDisplayNumber(GameTime))
+                    if (!PostLEDDisplayTimer(GameTime, GameProgress))
                     {
                         DB_printf("ERROR: Could not display game timer\r\n");
                     }
@@ -701,14 +744,29 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             if ((ThisEvent.EventType == ES_TIMEOUT) &&
                 (ThisEvent.EventParam == GAME_SERVICE_TIMER))
             {
-                ES_Event_t InitEvent;
-
-                CurrentState = GAME_INITIALIZING;
-                InitEvent.EventType = ES_INIT;
-                InitEvent.EventParam = 0;
-                if (!PostGameService(InitEvent))
+                if (!LossDisplayed)
                 {
-                    DB_printf("ERROR: Could not restart game service initialization\r\n");
+                    // show LOSS
+                    LossDisplayed = true;
+                    DB_printf("L O S S\r\n");
+                    if (!PostLEDDisplayLoss())
+                    {
+                        DB_printf("ERROR: Could not display LOSS\r\n");
+                    }
+                    ES_Timer_InitTimer(GAME_SERVICE_TIMER, RESTART_DISPLAY_OFF_DURATION);
+                }
+                else
+                {
+                    // loss finished, restarting
+                    LossDisplayed = false;
+                    if (!PostLEDClearDisplay())
+                    {
+                        DB_printf("ERROR: Could not clear LED display for welcome\r\n");
+                    }
+                    DB_printf("RESTARTING\r\n");
+                    RestartScrollIndex = 0;
+                    CurrentState = GAME_RESTARTING;
+                    ES_Timer_InitTimer(GAME_SERVICE_TIMER, RESTART_SCROLL_INTERVAL);
                 }
             }
             break;
@@ -1230,7 +1288,7 @@ static void UpdateGameTimer(void)
     }
 
     DB_printf("GAME TIME: %u\r\n", GameTime);
-    if (!PostLEDDisplayNumber(GameTime))
+    if (!PostLEDDisplayTimer(GameTime, GameProgress))
     {
         DB_printf("ERROR: Could not update game timer display\r\n");
     }
@@ -1238,8 +1296,10 @@ static void UpdateGameTimer(void)
     if (GameTime == 0U)
     {
         GameTimerActive = false;
+        ClearNeoPixels();
         StopGameTimers();
         CurrentState = GAME_LOSING;
+        LossDisplayed = false;
         DB_printf("TIME UP\r\n");
         bool SoupServoWasActive = SoupStirring || SoupShaking;
         SoupStirring = false;
@@ -1248,8 +1308,6 @@ static void UpdateGameTimer(void)
         {
             PostServoCommand(ES_SERVO_SOUP_STOP);
         }
-        SetAllNeoPixels(0, 0, 0);
-        UpdateNeoPixels();
         ES_Timer_InitTimer(GAME_SERVICE_TIMER, COUNTDOWN_DURATION);
     }
     else
@@ -1276,11 +1334,15 @@ static void CompleteTask(void)
 {
     UpdateGameProgress();
 
-    // UpdateGameProgress switches to GAME_WINNING on the final point
     if (CurrentState != GAME_WINNING)
     {
         CurrentState = GAME_SELECT_TASK;
         ES_Timer_InitTimer(SEQUENCE_TIMER, TASK_GAP_DURATION);
+
+        if (!PostLEDDisplayTimer(GameTime, GameProgress))
+        {
+            DB_printf("ERROR: Could not update progress bar\r\n");
+        }
     }
 }
 
@@ -1325,10 +1387,8 @@ static void EnterWelcomeMode(void)
 
     DB_printf("BROTH OF DUTY\r\n");
 
-    // Light the start button while waiting for a player
     START_LED = LED_ON;
 
-    // Coil strip off until the heat task lights it
     ClearNeoPixels();
     UpdateNeoPixels();
 
@@ -1337,8 +1397,9 @@ static void EnterWelcomeMode(void)
         DB_printf("ERROR: Could not clear LED display for welcome\r\n");
     }
 
-    // LED welcome display will be implemented
-    // through the LEDService interface.
+    // Start scrolling the welcome message (handled in GAME_WELCOME)
+    WelcomeScrollIndex = 0;
+    ES_Timer_InitTimer(GAME_SERVICE_TIMER, WELCOME_SCROLL_INTERVAL);
 }
 
 static void StopGameTimers(void)

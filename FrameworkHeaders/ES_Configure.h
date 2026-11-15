@@ -297,6 +297,7 @@ typedef enum
   ES_LED_CLEAR_DISPLAY,
   ES_LED_SHOW_GO,
   ES_LED_COUNTDOWN_STEP,
+  ES_LED_SHOW_LOSS,
 
   // game events
   ES_GAME_START,
