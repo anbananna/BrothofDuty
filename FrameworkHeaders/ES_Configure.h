@@ -321,6 +321,7 @@ typedef enum
   ES_SERVO_CARROT_CLOSE,
   ES_SERVO_SOUP_SPEED,      /* EventParam = (int16_t) speed, -100..100 */
   ES_SERVO_SOUP_STOP,
+  ES_SERVO_SOUP_SHAKE,
   ES_SERVO_DISPENSE_START,
   ES_SERVO_DISPENSE_STOP,
 
@@ -383,7 +384,7 @@ typedef enum
 #define TIMER3_RESP_FUNC PostGameService
 #define TIMER4_RESP_FUNC PostGameService
 #define TIMER5_RESP_FUNC PostServoService
-#define TIMER6_RESP_FUNC TIMER_UNUSED
+#define TIMER6_RESP_FUNC PostGameService
 #define TIMER7_RESP_FUNC TIMER_UNUSED
 #define TIMER8_RESP_FUNC TIMER_UNUSED
 #define TIMER9_RESP_FUNC TIMER_UNUSED
@@ -410,6 +411,7 @@ typedef enum
 #define SEQUENCE_TIMER     3
 #define SENSOR_PRINT_TIMER 4
 #define SERVO_TEST_TIMER   5
+#define SOUP_SHAKE_TIMER   6
 
 #define INPUT_POLL_TIMER   13
 #define SERVICE1_TIMER     14

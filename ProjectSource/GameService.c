@@ -53,21 +53,19 @@
 #define START_LED_TRIS          TRISBbits.TRISB10
 
 // Stir pot task target ranges across the 10-bit ADC's usable range
-#define SOUP_STIR_SPEED         50      // percent, -100..100
+#define SOUP_STIR_SPEED         80      // percent, -100..100
+#define SOUP_SHAKE_DURATION     200    // ms to shake the soup
+// Shake speed scales with distance from the target: just outside the window
+// shakes at MIN, the farthest possible pot position shakes at MAX
+#define SOUP_SHAKE_MIN_SPEED    20      // percent
+#define SOUP_SHAKE_MAX_SPEED    SOUP_STIR_SPEED
 
-// Heat coil task: hand must hold the IR (ITR20001, RB13) reading in a
-// window. Closer hand -> more reflected light -> higher voltage.
-// The window is relative to an ambient baseline taken when the task starts
-// (no hand over the sensor), so room lighting cancels out.
-// Window = baseline + selected rise target +/- HEAT_TOLERANCE_COUNTS.
-// R8 = 100k. 1 count = ~3.2 mV.
 #define HEAT_RISE_TARGET        150     // counts above ambient at the right height
 #define HEAT_TOLERANCE_COUNTS   20
-#define HEAT_TARGET_VARIANT_COUNT 3U
-#define HEAT_TARGET_STEP_COUNTS   40U
 // If the task starts with a hand already over the sensor, the baseline would
 // be too high; cap it so the window stays reachable
-#define HEAT_BASELINE_MAX       150
+#define HEAT_TARGET_VARIANT_COUNT 3U
+#define HEAT_TARGET_STEP_COUNTS   40U
 #define SENSOR_PRINT_PERIOD     500     // ms between IR readouts during the task
 #define HEAT_SERIAL_READOUT     1       // set 0 to stop printing IR values
 
@@ -77,11 +75,6 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
     HEAT_RISE_TARGET,
     HEAT_RISE_TARGET + HEAT_TARGET_STEP_COUNTS
 };
-
-// Coil "glow" color for the NeoPixels (R, G, B)
-#define COIL_RED                200
-#define COIL_GREEN              0
-#define COIL_BLUE               0
 
 // Pause between finishing one task and starting the next
 #define TASK_GAP_DURATION       2500
@@ -164,6 +157,8 @@ static uint16_t DetectedPotValue = 0;
 static StirTarget_t CurrentStirTarget;
 static StirTarget_t LastStirTarget = STIR_TARGET_COUNT;
 static bool SoupStirring = false;
+static bool SoupShaking = false;        // pot out of range: servo shakes
+static bool SoupShakeForward = true;    // current shake direction
 static bool CoilHeating = false;
 static uint16_t HeatBaseline = 0;       // ambient IR reading at task start
 
@@ -187,11 +182,14 @@ static void EnterCarrotTask(void);
 static void StartCarrotBlinkSequence(void);
 static void EnterStirTask(void);
 static void UpdateSoupStirring(uint16_t PotReading);
+static void StartSoupShake(void);
+static void StopSoupShake(void);
+static int16_t ShakeSpeedForPot(uint16_t PotReading);
+static void SetSoupSpeed(int16_t Speed);
 static void EnterHeatTask(void);
 static uint16_t HeatWindowLow(void);
 static uint16_t HeatWindowHigh(void);
 static void UpdateCoilHeating(uint16_t IRReading);
-static void SetCoilGlow(bool On);
 static void PostServoCommand(ES_EventType_t Command);
 
 /*******************************
@@ -460,11 +458,20 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                         DoneEvent.EventParam = 0;
                         PostGameService(DoneEvent);
                     }
+                    // Pot out of range, shake
+                    else if ((ThisEvent.EventParam == SOUP_SHAKE_TIMER) && SoupShaking)
+                    {
+                        int16_t ShakeSpeed = ShakeSpeedForPot(QueryPotValue());
+                        SoupShakeForward = !SoupShakeForward;
+                        SetSoupSpeed(SoupShakeForward ? ShakeSpeed : -ShakeSpeed);
+                        ES_Timer_InitTimer(SOUP_SHAKE_TIMER, SOUP_SHAKE_DURATION);
+                    }
                     break;
 
                 case ES_STIR_TASK_COMPLETE:
                     DB_printf("SOUP STIRRED!\r\n");
                     ES_Timer_StopTimer(INTERACTION_TIMER);
+                    StopSoupShake();
                     // Make sure the soup servo is off when leaving the task
                     if (SoupStirring)
                     {
@@ -513,8 +520,10 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     if (CoilHeating)
                     {
                         CoilHeating = false;
-                        SetCoilGlow(false);
                     }
+                    // Strip off when leaving the task
+                    SetAllNeoPixels(0,0,0);
+                    UpdateNeoPixels();
                     CompleteTask();
                     break;
 
@@ -693,9 +702,10 @@ static void EnterStirTask(void)
               (unsigned int)StirTargetRanges[CurrentStirTarget].Low,
               (unsigned int)StirTargetRanges[CurrentStirTarget].High);
 
-    // Start from a known state: soup servo off
+    // Start from a known state: not stirring or shaking
     SoupStirring = false;
-    PostServoCommand(ES_SERVO_SOUP_STOP);
+    SoupShaking = false;
+
 
     // Pot events only arrive when the pot moves, so check where it is now.
     // It may already be in the window when the task starts.
@@ -703,35 +713,83 @@ static void EnterStirTask(void)
 }
 
 
-// Soup servo runs while the pot is inside the window, stops outside it
+// Soup servo stirs while the pot is inside the window and shakes back and
+// forth while it is outside
 static void UpdateSoupStirring(uint16_t PotReading)
 {
     StirTargetRange_t Target = StirTargetRanges[CurrentStirTarget];
     bool InWindow = (PotReading >= Target.Low) &&
                     (PotReading <= Target.High);
 
-    if (InWindow && !SoupStirring)
+    if (InWindow && !SoupStirring) // in the range
     {
+        StopSoupShake();
         SoupStirring = true;
         DB_printf("POT IN RANGE (%u) - STIRRING\r\n", PotReading);
-
-        ES_Event_t ServoEvent;
-        ServoEvent.EventType = ES_SERVO_SOUP_SPEED;
-        ServoEvent.EventParam = (uint16_t)SOUP_STIR_SPEED;
-        PostServoService(ServoEvent);
+        SetSoupSpeed(SOUP_STIR_SPEED);
 
         // Task completes if the pot stays in range for the interaction interval.
         ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
     }
-    else if (!InWindow && SoupStirring)
+    else if (!InWindow && !SoupShaking) // out of range (or just started)
     {
-        SoupStirring = false;
-        DB_printf("POT OUT OF RANGE (%u) - STOPPED\r\n", PotReading);
-        PostServoCommand(ES_SERVO_SOUP_STOP);
-
-        // Left the window before the hold time: start over next time
-        ES_Timer_StopTimer(INTERACTION_TIMER);
+        if (SoupStirring)
+        {
+            SoupStirring = false;
+            // Left the window before the hold time: start over next time
+            ES_Timer_StopTimer(INTERACTION_TIMER);
+        }
+        DB_printf("POT OUT OF RANGE (%u) - SHAKING\r\n", PotReading);
+        StartSoupShake();
     }
+}
+
+
+// Begin shaking: alternate direction every SOUP_SHAKE_DURATION
+static void StartSoupShake(void)
+{
+    SoupShaking = true;
+    SoupShakeForward = true;
+    SetSoupSpeed(ShakeSpeedForPot(QueryPotValue()));
+    ES_Timer_InitTimer(SOUP_SHAKE_TIMER, SOUP_SHAKE_DURATION);
+}
+
+
+static int16_t ShakeSpeedForPot(uint16_t PotReading)
+{
+    int32_t Target = (StirTargetRanges[CurrentStirTarget].High - StirTargetRanges[CurrentStirTarget].Low) / 2;
+
+    int32_t Distance = 0;
+    if(PotReading > StirTargetRanges[CurrentStirTarget].High)
+    {
+        Distance = (int32_t)((PotReading - StirTargetRanges[CurrentStirTarget].High));
+    }
+    else if(PotReading < StirTargetRanges[CurrentStirTarget].Low)
+    {
+        Distance = (int32_t)((StirTargetRanges[CurrentStirTarget].Low - PotReading));
+    }
+    DB_printf("DISTANCE (%u)\r\n", Distance);
+
+    int32_t Speed = SOUP_SHAKE_MAX_SPEED * (1023 - Distance) / 1023;
+
+    return (int16_t)Speed;
+}
+
+
+// Stop shaking (does not change the servo speed; caller sets what's next)
+static void StopSoupShake(void)
+{
+    SoupShaking = false;
+    ES_Timer_StopTimer(SOUP_SHAKE_TIMER);
+}
+
+
+static void SetSoupSpeed(int16_t Speed)
+{
+    ES_Event_t ServoEvent;
+    ServoEvent.EventType = ES_SERVO_SOUP_SPEED;
+    ServoEvent.EventParam = (uint16_t)Speed;
+    PostServoService(ServoEvent);
 }
 
 
@@ -754,11 +812,6 @@ static void EnterHeatTask(void)
 
     // Ambient baseline, assumes no hand over the sensor right now
     HeatBaseline = QueryIRValue();
-    if (HeatBaseline > HEAT_BASELINE_MAX)
-    {
-        HeatBaseline = HEAT_BASELINE_MAX;
-    }
-
     TargetRise = HeatTargetRiseOptions[rand() % HEAT_TARGET_VARIANT_COUNT];
     TargetHandValue = HeatBaseline + TargetRise;
 
@@ -769,7 +822,8 @@ static void EnterHeatTask(void)
               (unsigned int)HeatWindowHigh());
 
     CoilHeating = false;
-    SetCoilGlow(false);
+    SetAllNeoPixels(0,0,0);
+    UpdateNeoPixels();
 
 #if HEAT_SERIAL_READOUT
     ES_Timer_InitTimer(SENSOR_PRINT_TIMER, SENSOR_PRINT_PERIOD);
@@ -791,7 +845,8 @@ static void UpdateCoilHeating(uint16_t IRReading)
     {
         CoilHeating = true;
         DB_printf("HAND IN RANGE (%u) - HEATING\r\n", IRReading);
-        SetCoilGlow(true);
+        SetAllNeoPixels(255, 0, 0);
+        UpdateNeoPixels();
 
         // Task completes if the hand stays in range for the interaction interval.
         ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
@@ -800,25 +855,31 @@ static void UpdateCoilHeating(uint16_t IRReading)
     {
         CoilHeating = false;
         DB_printf("HAND OUT OF RANGE (%u) - COOLING\r\n", IRReading);
-        SetCoilGlow(false);
-
+              
         // Left the window before the hold time: start over next time
         ES_Timer_StopTimer(INTERACTION_TIMER);
     }
-}
+    else {
+        if(IRReading < HeatWindowLow())
+        {
+            int16_t Distance = HeatWindowLow() - IRReading;
+            SetAllNeoPixels(200, 0 + Distance, 0);
+            DB_printf("DISTANCE (%u)\r\n", Distance);
+            UpdateNeoPixels();
 
-
-static void SetCoilGlow(bool On)
-{
-    if (On)
-    {
-        SetAllNeoPixels(COIL_RED, COIL_GREEN, COIL_BLUE);
+        }
+        else if(IRReading > HeatWindowHigh())
+        {
+            int16_t Distance = IRReading - HeatWindowHigh();
+            if(Distance > 200)
+            {
+                Distance = 200;
+            }
+            SetAllNeoPixels(200 - Distance, 0, 0 + Distance);
+            DB_printf("DISTANCE (%u)\r\n", Distance);
+            UpdateNeoPixels();
+        }
     }
-    else
-    {
-        ClearNeoPixels();
-    }
-    UpdateNeoPixels();
 }
 
 
@@ -848,7 +909,6 @@ static void StartNewGame(void)
 
 static void AssignNewTask(void)
 {
-
     do
     {
         CurrentTask = (GameTask_t)(rand() % TASK_COUNT);
