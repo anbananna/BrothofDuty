@@ -69,8 +69,7 @@
 
 #define HEAT_RISE_TARGET        150     // counts above ambient at the right height
 #define HEAT_TOLERANCE_COUNTS   20
-// If the task starts with a hand already over the sensor, the baseline would
-// be too high; cap it so the window stays reachable
+
 #define HEAT_TARGET_VARIANT_COUNT 3U
 #define HEAT_TARGET_STEP_COUNTS   40U
 #define SENSOR_PRINT_PERIOD     500     // ms between IR readouts during the task
@@ -93,6 +92,8 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
     (WIN_CELEBRATION_DURATION / WIN_ANIMATION_STEP)
 #define WIN_RAINBOW_PHASE_STEP   8U
 #define WIN_CELEBRATION_TIMER    GAME_SERVICE_TIMER
+
+#define DISPENSE_TIMEOUT         5000U
 
 
 /*******************************
@@ -190,6 +191,18 @@ static uint16_t DetectedHandValue = 0;
 static uint16_t TestCarrotPressCount = 0;
 static uint16_t TestPotValue = 0;
 static uint16_t TestIRValue = 0;
+static uint16_t TestBeamBreak = 0;
+
+// Dispense servo phases
+typedef enum
+{
+    DISPENSE_IDLE,          // servo off
+    DISPENSE_PRIMING,       // init spin until the beam is established
+    DISPENSE_WAIT_BREAK,    // spin until a treat breaks the beam
+    DISPENSE_WAIT_RESTORE   // then until the beam is restored
+} DispensePhase_t;
+
+static DispensePhase_t DispensePhase = DISPENSE_IDLE;
 
 static bool WinCelebrationActive = false;
 static bool WinCarrotOpen = false;
@@ -214,6 +227,10 @@ static void StartSoupShake(void);
 static void StopSoupShake(void);
 static int16_t ShakeSpeedForPot(uint16_t PotReading);
 static void SetSoupSpeed(int16_t Speed);
+static void PrimeDispenser(void);
+static void StartDispense(void);
+static void UpdateDispense(ES_Event_t ThisEvent);
+static void StopDispense(void);
 static void EnterHeatTask(void);
 static uint16_t HeatWindowLow(void);
 static uint16_t HeatWindowHigh(void);
@@ -264,10 +281,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 {
     ES_Event_t ReturnEvent;
 
-    DB_printf("GameService: State=%d, Event=%d, Param=%u\r\n",
-          CurrentState,
-          ThisEvent.EventType,
-          ThisEvent.EventParam);
+    //DB_printf("GameService: State=%d, Event=%d, Param=%u\r\n",CurrentState,ThisEvent.EventType,ThisEvent.EventParam);
 
     ReturnEvent.EventType = ES_NO_EVENT;
     ReturnEvent.EventParam = 0;
@@ -279,11 +293,14 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
         UpdateGameTimer();
     }
 
+    UpdateDispense(ThisEvent);
+
     switch (CurrentState)
     {
         case GAME_INITIALIZING:
             if (ThisEvent.EventType == ES_INIT)
             {
+                PrimeDispenser();
                 EnterWelcomeMode();
                 CurrentState = GAME_WELCOME;
                 DB_printf("GAME INITIALIZED\r\n");
@@ -327,6 +344,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                         TestPotValue = QueryPotValue();
                         TestIRValue = QueryIRValue();
+                        TestBeamBreak = QueryBeamBroken();
 
                         DB_printf("\r\n");
                         DB_printf("============================\r\n");
@@ -335,6 +353,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                         DB_printf("Initial POT: %u\r\n", TestPotValue);
                         DB_printf("Initial IR: %u\r\n", TestIRValue);
+                        DB_printf("Beam Break: %u\r\n", TestBeamBreak);
 
                         DB_printf("NeoPixels: r/g/b/w = dim color, o = off\r\n");
                         DB_printf("Press X to exit test mode\r\n");
@@ -582,7 +601,6 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                         uint16_t IR = QueryIRValue();
                         // Rise above ambient is what the window checks
                         int16_t Rise = (int16_t)IR - (int16_t)HeatBaseline;
-                        DB_printf("IR: %u, rise above baseline: %d\r\n", IR, Rise);
                         ES_Timer_InitTimer(SENSOR_PRINT_TIMER, SENSOR_PRINT_PERIOD);
                     }
                     else if ((ThisEvent.EventParam == INTERACTION_TIMER) && CoilHeating)
@@ -618,6 +636,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             switch (ThisEvent.EventType)
             {
                 case ES_GAME_WON:
+                    StartDispense();
                     if (!WinCelebrationActive) {
                         StartWinCelebration();
                     }
@@ -736,6 +755,16 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     DB_printf("\r\n[IR SENSOR TEST]\r\n");
                     DB_printf("Raw ADC: %u / 1023\r\n", TestIRValue);
                     DB_printf("Relative reading: %u%%\r\n", (uint16_t)((TestIRValue * 100U) / 1023U));
+                    break;
+
+                case ES_INPUT_BEAM_BROKEN:
+                    DB_printf("\r\n[BEAM BREAK TEST]");
+                    DB_printf(" BEAM BROKEN - RB4\r\n");
+                    break;
+
+                case ES_INPUT_BEAM_RESTORED:
+                    DB_printf("[BEAM BREAK TEST]");
+                    DB_printf(" BEAM RESTORED - RB4\r\n");
                     break;
 
                 case ES_NEW_KEY:
@@ -905,7 +934,6 @@ static int16_t ShakeSpeedForPot(uint16_t PotReading)
     {
         Distance = (int32_t)((StirTargetRanges[CurrentStirTarget].Low - PotReading));
     }
-    DB_printf("DISTANCE (%u)\r\n", Distance);
 
     int32_t Speed = SOUP_SHAKE_MAX_SPEED * (1023 - Distance) / 1023;
 
@@ -930,6 +958,84 @@ static void SetSoupSpeed(int16_t Speed)
     {
         DB_printf("ERROR: Could not post soup servo speed\r\n");
     }
+}
+
+// spin until the beam is established
+static void PrimeDispenser(void)
+{
+    if (DispensePhase != DISPENSE_IDLE)
+    {
+        return;     // already running
+    }
+
+    if (!QueryBeamBroken())
+    {
+        DB_printf("DISPENSER READY (beam established)\r\n");
+        return;
+    }
+
+    DispensePhase = DISPENSE_PRIMING;
+    DB_printf("PRIMING DISPENSER until beam is established\r\n");
+    PostServoCommand(ES_SERVO_DISPENSE_START);
+    ES_Timer_InitTimer(DISPENSE_TIMER, DISPENSE_TIMEOUT);
+}
+
+// spin until the beam is broken and then restored on win
+static void StartDispense(void)
+{
+    // If the beam is already broken, wait for it to restore
+    DispensePhase = QueryBeamBroken() ? DISPENSE_WAIT_RESTORE
+                                      : DISPENSE_WAIT_BREAK;
+    DB_printf("DISPENSING\r\n");
+    PostServoCommand(ES_SERVO_DISPENSE_START);
+    ES_Timer_InitTimer(DISPENSE_TIMER, DISPENSE_TIMEOUT);
+}
+
+static void UpdateDispense(ES_Event_t ThisEvent)
+{
+    if (DispensePhase == DISPENSE_IDLE)
+    {
+        return;
+    }
+
+    if ((ThisEvent.EventType == ES_TIMEOUT) &&
+        (ThisEvent.EventParam == DISPENSE_TIMER))
+    {
+        DB_printf("DISPENSE TIMEOUT (phase %u)\r\n",
+                  (unsigned int)DispensePhase);
+        StopDispense();
+        return;
+    }
+
+    switch (DispensePhase)
+    {
+        case DISPENSE_WAIT_BREAK:
+            if (ThisEvent.EventType == ES_INPUT_BEAM_BROKEN)
+            {
+                DB_printf("TREAT DETECTED\r\n");
+                DispensePhase = DISPENSE_WAIT_RESTORE;
+            }
+            break;
+
+        case DISPENSE_PRIMING:
+        case DISPENSE_WAIT_RESTORE:
+            if (ThisEvent.EventType == ES_INPUT_BEAM_RESTORED)
+            {
+                StopDispense();
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
+static void StopDispense(void)
+{
+    DispensePhase = DISPENSE_IDLE;
+    ES_Timer_StopTimer(DISPENSE_TIMER);
+    PostServoCommand(ES_SERVO_DISPENSE_STOP);
+    DB_printf("DISPENSE COMPLETE\r\n");
 }
 
 
@@ -1004,7 +1110,6 @@ static void UpdateCoilHeating(uint16_t IRReading)
         {
             int16_t Distance = HeatWindowLow() - IRReading;
             SetAllNeoPixels(200, 0 + Distance, 0);
-            DB_printf("DISTANCE (%u)\r\n", Distance);
             UpdateNeoPixels();
 
         }
@@ -1016,12 +1121,10 @@ static void UpdateCoilHeating(uint16_t IRReading)
                 Distance = 200;
             }
             SetAllNeoPixels(200 - Distance, 0, 0 + Distance);
-            DB_printf("DISTANCE (%u)\r\n", Distance);
             UpdateNeoPixels();
         }
     }
 }
-
 
 static void PostServoCommand(ES_EventType_t Command)
 {
@@ -1054,6 +1157,7 @@ static void StartWinCelebration(void)
     SetSoupSpeed(SOUP_STIR_SPEED);
     SetNeoPixelRainbow(WinRainbowPhase);
     UpdateNeoPixels();
+
 
     ES_Timer_InitTimer(WIN_CELEBRATION_TIMER, WIN_ANIMATION_STEP);
 }

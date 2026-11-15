@@ -8,6 +8,7 @@
      Inputs:
        RB2  - Carrot Button
        RB3  - Start Button
+       RB4  - Beam Break (pin 11, digital, LOW = beam broken)
        RB12 - Potentiometer (AN12)
        RB13 - Reflective IR Sensor (AN11)
 
@@ -40,6 +41,11 @@
 
 // Button debounce
 #define DEBOUNCE_SAMPLES        3
+
+// Beam break receiver output level when the beam is interrupted.
+// Typical open-collector IR break-beam receivers pull LOW when broken.
+// Change to 1 if the sensor drives HIGH when broken.
+#define BEAM_BROKEN_LEVEL       0
 
 // Analog change thresholds
 #define POT_CHANGE_THRESHOLD    8
@@ -80,6 +86,7 @@ typedef struct
 
 static ButtonState_t StartButton;
 static ButtonState_t CarrotButton;
+static ButtonState_t BeamBreak;     // "Pressed" = beam broken
 
 
 /****************************************************************************
@@ -96,6 +103,7 @@ static void PollAnalogInputs(void);
 
 static bool ReadStartButton(void);
 static bool ReadCarrotButton(void);
+static bool ReadBeamBroken(void);
 
 static void DebounceButton(
     ButtonState_t *Button,
@@ -217,10 +225,10 @@ ES_Event_t RunInputService(ES_Event_t ThisEvent)
 
 static bool InitInputHardware(void)
 {
-    // Configure RB2 and RB3 as digital pins
+    // Configure RB2, RB3, and RB4 as digital inputs
     ANSELBbits.ANSB2 = 0;       // RB2 = Carrot button
     ANSELBbits.ANSB3 = 0;       // RB3 = Start button
-    
+        
     // Enable analog functionality on AN11 and AN12
     ANSELBbits.ANSB13 = 1;      // AN11 = IR sensor = RB13
     ANSELBbits.ANSB12 = 1;      // AN12 = Potentiometer = RB12
@@ -228,6 +236,11 @@ static bool InitInputHardware(void)
     // Configure button pins as digital inputs
     TRISBbits.TRISB2 = 1;       // Carrot button
     TRISBbits.TRISB3 = 1;       // Start button
+    TRISBbits.TRISB4 = 1;       // Beam break
+
+    // Beam break receiver is open-collector; enable internal pull-up on RB4
+    CNPDBbits.CNPDB4 = 0;
+    CNPUBbits.CNPUB4 = 1;
 
     // Configure analog sensor pins as inputs
     TRISBbits.TRISB12 = 1;      // Potentiometer
@@ -259,6 +272,10 @@ static void InitializeButtonStates(void)
     CarrotButton.StablePressed = ReadCarrotButton();
     CarrotButton.CandidatePressed = CarrotButton.StablePressed;
     CarrotButton.DebounceCount = 0;
+
+    BeamBreak.StablePressed = ReadBeamBroken();
+    BeamBreak.CandidatePressed = BeamBreak.StablePressed;
+    BeamBreak.DebounceCount = 0;
 }
 
 
@@ -301,6 +318,13 @@ static void PollButtons(void)
         ES_INPUT_CARROT_PRESSED,
         ES_INPUT_CARROT_RELEASED
     );
+
+    DebounceButton(
+        &BeamBreak,
+        ReadBeamBroken(),
+        ES_INPUT_BEAM_BROKEN,
+        ES_INPUT_BEAM_RESTORED
+    );
 }
 
 /****************************************************************************
@@ -333,6 +357,22 @@ static bool ReadStartButton(void)
 static bool ReadCarrotButton(void)
 {
     return (PORTBbits.RB2 == 0);
+}
+
+/****************************************************************************
+ Function
+     ReadBeamBroken
+
+ Returns
+     true if the beam is interrupted
+
+ Description
+     Reads the beam break receiver on RB4 (pin 11)
+****************************************************************************/
+
+static bool ReadBeamBroken(void)
+{
+    return (PORTBbits.RB4 == BEAM_BROKEN_LEVEL);
 }
 
 /****************************************************************************
@@ -493,4 +533,9 @@ bool QueryStartButton(void)
 bool QueryCarrotButton(void)
 {
     return CarrotButton.StablePressed;
+}
+
+bool QueryBeamBroken(void)
+{
+    return BeamBreak.StablePressed;
 }

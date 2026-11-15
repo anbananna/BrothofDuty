@@ -338,7 +338,10 @@ typedef enum
 
   ES_INPUT_POT_CHANGED,
 
-  ES_INPUT_IR_CHANGED
+  ES_INPUT_IR_CHANGED,
+
+  ES_INPUT_BEAM_BROKEN,
+  ES_INPUT_BEAM_RESTORED
 }ES_EventType_t;
 
 /****************************************************************************/
@@ -389,7 +392,7 @@ typedef enum
 #define TIMER4_RESP_FUNC PostGameService
 #define TIMER5_RESP_FUNC PostServoService
 #define TIMER6_RESP_FUNC PostGameService
-#define TIMER7_RESP_FUNC TIMER_UNUSED
+#define TIMER7_RESP_FUNC PostGameService
 #define TIMER8_RESP_FUNC TIMER_UNUSED
 #define TIMER9_RESP_FUNC TIMER_UNUSED
 #define TIMER10_RESP_FUNC TIMER_UNUSED
@@ -416,6 +419,7 @@ typedef enum
 #define SENSOR_PRINT_TIMER 4
 #define SERVO_TEST_TIMER   5
 #define SOUP_SHAKE_TIMER   6
+#define DISPENSE_TIMER     7
 
 #define INPUT_POLL_TIMER   13
 #define SERVICE1_TIMER     14

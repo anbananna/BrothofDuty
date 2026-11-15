@@ -18,4 +18,7 @@ uint16_t QueryIRValue(void);
 bool QueryStartButton(void);
 bool QueryCarrotButton(void);
 
+// Beam break state (true = beam interrupted)
+bool QueryBeamBroken(void);
+
 #endif
