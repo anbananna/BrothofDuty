@@ -165,6 +165,42 @@ void SetAllNeoPixels(uint8_t red, uint8_t green, uint8_t blue)
     }
 }
 
+void SetNeoPixelRainbow(uint8_t Phase)
+{
+    uint8_t i;
+
+    for (i = 0; i < MAX_LEDS; i++)
+    {
+        uint8_t Hue = (uint8_t)(Phase + ((uint16_t)i * 256U) / MAX_LEDS);
+        uint8_t red;
+        uint8_t green;
+        uint8_t blue;
+
+        if (Hue < 85U)
+        {
+            red = (uint8_t)(255U - (Hue * 3U));
+            green = (uint8_t)(Hue * 3U);
+            blue = 0;
+        }
+        else if (Hue < 170U)
+        {
+            Hue = (uint8_t)(Hue - 85U);
+            red = 0;
+            green = (uint8_t)(255U - (Hue * 3U));
+            blue = (uint8_t)(Hue * 3U);
+        }
+        else
+        {
+            Hue = (uint8_t)(Hue - 170U);
+            red = (uint8_t)(Hue * 3U);
+            green = 0;
+            blue = (uint8_t)(255U - (Hue * 3U));
+        }
+
+        SetNeoPixelColor(i, red, green, blue);
+    }
+}
+
 /****************************************************************************
 // Turn all LEDs off (takes effect on the next UpdateNeoPixels)
 ****************************************************************************/
