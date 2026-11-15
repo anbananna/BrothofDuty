@@ -76,11 +76,6 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
     HEAT_RISE_TARGET + HEAT_TARGET_STEP_COUNTS
 };
 
-// Coil "glow" color for the NeoPixels (R, G, B)
-#define COIL_RED                200
-#define COIL_GREEN              0
-#define COIL_BLUE               0
-
 // Pause between finishing one task and starting the next
 #define TASK_GAP_DURATION       2500
 
@@ -195,7 +190,6 @@ static void EnterHeatTask(void);
 static uint16_t HeatWindowLow(void);
 static uint16_t HeatWindowHigh(void);
 static void UpdateCoilHeating(uint16_t IRReading);
-static void SetCoilGlow(bool On);
 static void PostServoCommand(ES_EventType_t Command);
 
 /*******************************
@@ -526,8 +520,10 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     if (CoilHeating)
                     {
                         CoilHeating = false;
-                        SetCoilGlow(false);
                     }
+                    // Strip off when leaving the task
+                    SetAllNeoPixels(0,0,0);
+                    UpdateNeoPixels();
                     CompleteTask();
                     break;
 
@@ -826,7 +822,8 @@ static void EnterHeatTask(void)
               (unsigned int)HeatWindowHigh());
 
     CoilHeating = false;
-    SetCoilGlow(false);
+    SetAllNeoPixels(0,0,0);
+    UpdateNeoPixels();
 
 #if HEAT_SERIAL_READOUT
     ES_Timer_InitTimer(SENSOR_PRINT_TIMER, SENSOR_PRINT_PERIOD);
@@ -848,7 +845,8 @@ static void UpdateCoilHeating(uint16_t IRReading)
     {
         CoilHeating = true;
         DB_printf("HAND IN RANGE (%u) - HEATING\r\n", IRReading);
-        SetCoilGlow(true);
+        SetAllNeoPixels(255, 0, 0);
+        UpdateNeoPixels();
 
         // Task completes if the hand stays in range for the interaction interval.
         ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
@@ -857,25 +855,31 @@ static void UpdateCoilHeating(uint16_t IRReading)
     {
         CoilHeating = false;
         DB_printf("HAND OUT OF RANGE (%u) - COOLING\r\n", IRReading);
-        SetCoilGlow(false);
-
+              
         // Left the window before the hold time: start over next time
         ES_Timer_StopTimer(INTERACTION_TIMER);
     }
-}
+    else {
+        if(IRReading < HeatWindowLow())
+        {
+            int16_t Distance = HeatWindowLow() - IRReading;
+            SetAllNeoPixels(200, 0 + Distance, 0);
+            DB_printf("DISTANCE (%u)\r\n", Distance);
+            UpdateNeoPixels();
 
-
-static void SetCoilGlow(bool On)
-{
-    if (On)
-    {
-        SetAllNeoPixels(COIL_RED, COIL_GREEN, COIL_BLUE);
+        }
+        else if(IRReading > HeatWindowHigh())
+        {
+            int16_t Distance = IRReading - HeatWindowHigh();
+            if(Distance > 200)
+            {
+                Distance = 200;
+            }
+            SetAllNeoPixels(200 - Distance, 0, 0 + Distance);
+            DB_printf("DISTANCE (%u)\r\n", Distance);
+            UpdateNeoPixels();
+        }
     }
-    else
-    {
-        ClearNeoPixels();
-    }
-    UpdateNeoPixels();
 }
 
 
