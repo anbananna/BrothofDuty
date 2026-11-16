@@ -32,7 +32,7 @@
 /*******************************
    Module Defines
  *******************************/
-#define MAX_GAME_PROGRESS       5
+#define MAX_GAME_PROGRESS       8
 #define GAME_DURATION           60000
 #define GAME_TIMER_TICK         1000U
 #define INACTIVITY_DURATION     20000
@@ -55,6 +55,10 @@
 #define RESTART_SCROLL_INTERVAL     250U
 #define RESTART_SCROLL_PADDING      8U
 
+#define WELCOME_DISPLAY_OFF_DURATION 2000U
+#define WELCOME_SCROLL_INTERVAL     250U
+#define WELCOME_SCROLL_PADDING      8U
+
 // Start button LED (the switch itself is on RB3)
 #define START_LED               LATBbits.LATB10
 #define START_LED_TRIS          TRISBbits.TRISB10
@@ -69,8 +73,7 @@
 
 #define HEAT_RISE_TARGET        150     // counts above ambient at the right height
 #define HEAT_TOLERANCE_COUNTS   20
-// If the task starts with a hand already over the sensor, the baseline would
-// be too high; cap it so the window stays reachable
+
 #define HEAT_TARGET_VARIANT_COUNT 3U
 #define HEAT_TARGET_STEP_COUNTS   40U
 #define SENSOR_PRINT_PERIOD     500     // ms between IR readouts during the task
@@ -84,7 +87,7 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
 };
 
 // Pause between finishing one task and starting the next
-#define TASK_GAP_DURATION       2500
+#define TASK_GAP_DURATION       500
 
 #define WIN_CELEBRATION_DURATION 5000U
 #define WIN_ANIMATION_STEP       100U
@@ -93,6 +96,8 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
     (WIN_CELEBRATION_DURATION / WIN_ANIMATION_STEP)
 #define WIN_RAINBOW_PHASE_STEP   8U
 #define WIN_CELEBRATION_TIMER    GAME_SERVICE_TIMER
+
+#define DISPENSE_TIMEOUT         5000U
 
 
 /*******************************
@@ -173,7 +178,10 @@ static bool CarrotServoOpening = false;
 static bool CarrotServoClosing = false;
 
 static const char RestartingMessage[] = "restarting....";
+static const char WelcomeMessage[] = "Welcome to broth of duty!";
 static uint8_t RestartScrollIndex = 0;
+static uint8_t WelcomeScrollIndex = 0;
+static bool LossDisplayed = false;
 
 static uint16_t DetectedPotValue = 0;
 static StirTarget_t CurrentStirTarget;
@@ -190,6 +198,18 @@ static uint16_t DetectedHandValue = 0;
 static uint16_t TestCarrotPressCount = 0;
 static uint16_t TestPotValue = 0;
 static uint16_t TestIRValue = 0;
+static uint16_t TestBeamBreak = 0;
+
+// Dispense servo phases
+typedef enum
+{
+    DISPENSE_IDLE,          // servo off
+    DISPENSE_PRIMING,       // init spin until the beam is established
+    DISPENSE_WAIT_BREAK,    // spin until a treat breaks the beam
+    DISPENSE_WAIT_RESTORE   // then until the beam is restored
+} DispensePhase_t;
+
+static DispensePhase_t DispensePhase = DISPENSE_IDLE;
 
 static bool WinCelebrationActive = false;
 static bool WinCarrotOpen = false;
@@ -214,6 +234,10 @@ static void StartSoupShake(void);
 static void StopSoupShake(void);
 static int16_t ShakeSpeedForPot(uint16_t PotReading);
 static void SetSoupSpeed(int16_t Speed);
+static void PrimeDispenser(void);
+static void StartDispense(void);
+static void UpdateDispense(ES_Event_t ThisEvent);
+static void StopDispense(void);
 static void EnterHeatTask(void);
 static uint16_t HeatWindowLow(void);
 static uint16_t HeatWindowHigh(void);
@@ -264,10 +288,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 {
     ES_Event_t ReturnEvent;
 
-    DB_printf("GameService: State=%d, Event=%d, Param=%u\r\n",
-          CurrentState,
-          ThisEvent.EventType,
-          ThisEvent.EventParam);
+    //DB_printf("GameService: State=%d, Event=%d, Param=%u\r\n",CurrentState,ThisEvent.EventType,ThisEvent.EventParam);
 
     ReturnEvent.EventType = ES_NO_EVENT;
     ReturnEvent.EventParam = 0;
@@ -279,11 +300,14 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
         UpdateGameTimer();
     }
 
+    UpdateDispense(ThisEvent);
+
     switch (CurrentState)
     {
         case GAME_INITIALIZING:
             if (ThisEvent.EventType == ES_INIT)
             {
+                PrimeDispenser();
                 EnterWelcomeMode();
                 CurrentState = GAME_WELCOME;
                 DB_printf("GAME INITIALIZED\r\n");
@@ -294,7 +318,43 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             // DB_printf("In GAME WELCOME\r\n");
             switch (ThisEvent.EventType)
             {
-                case ES_GAME_START:
+                case ES_TIMEOUT:
+                    // Scroll the welcome message on repeat until start is pressed
+                    if (ThisEvent.EventParam == GAME_SERVICE_TIMER)
+                    {
+                        const uint8_t MessageLength =
+                            (uint8_t)(sizeof(WelcomeMessage) - 1U);
+                        const uint8_t TotalCharacters =
+                            (uint8_t)(MessageLength + WELCOME_SCROLL_PADDING);
+
+                        if (WelcomeScrollIndex < TotalCharacters)
+                        {
+                            ES_Event_t LEDCharEvent;
+                            LEDCharEvent.EventType = ES_LED_ADD_CHAR;
+                            LEDCharEvent.EventParam =
+                                (WelcomeScrollIndex < MessageLength) ?
+                                (uint8_t)WelcomeMessage[WelcomeScrollIndex] : ' ';
+
+                            if (PostLEDService(LEDCharEvent))
+                            {
+                                WelcomeScrollIndex++;
+                            }
+                            else
+                            {
+                                DB_printf("ERROR: Could not post welcome message character\r\n");
+                            }
+                            ES_Timer_InitTimer(GAME_SERVICE_TIMER,
+                                               WELCOME_SCROLL_INTERVAL);
+                        }
+                        else
+                        {
+                            // Message fully scrolled off: pause, then repeat
+                            WelcomeScrollIndex = 0;
+                            ES_Timer_InitTimer(GAME_SERVICE_TIMER,
+                                               WELCOME_DISPLAY_OFF_DURATION);
+                        }
+                    }
+                    break;
                 case ES_INPUT_START_PRESSED:
                     DB_printf("GAME STARTED\r\n");
                     START_LED = LED_OFF;
@@ -327,6 +387,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                         TestPotValue = QueryPotValue();
                         TestIRValue = QueryIRValue();
+                        TestBeamBreak = QueryBeamBroken();
 
                         DB_printf("\r\n");
                         DB_printf("============================\r\n");
@@ -335,6 +396,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                         DB_printf("Initial POT: %u\r\n", TestPotValue);
                         DB_printf("Initial IR: %u\r\n", TestIRValue);
+                        DB_printf("Beam Break: %u\r\n", TestBeamBreak);
 
                         DB_printf("NeoPixels: r/g/b/w = dim color, o = off\r\n");
                         DB_printf("Press X to exit test mode\r\n");
@@ -359,7 +421,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     GameTime = GAME_DURATION / 1000U;
                     GameTimerActive = true;
                     DB_printf("GAME TIMER STARTED: %u\r\n", GameTime);
-                    if (!PostLEDDisplayNumber(GameTime))
+                    if (!PostLEDDisplayTimer(GameTime, GameProgress))
                     {
                         DB_printf("ERROR: Could not display game timer\r\n");
                     }
@@ -582,7 +644,6 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                         uint16_t IR = QueryIRValue();
                         // Rise above ambient is what the window checks
                         int16_t Rise = (int16_t)IR - (int16_t)HeatBaseline;
-                        DB_printf("IR: %u, rise above baseline: %d\r\n", IR, Rise);
                         ES_Timer_InitTimer(SENSOR_PRINT_TIMER, SENSOR_PRINT_PERIOD);
                     }
                     else if ((ThisEvent.EventParam == INTERACTION_TIMER) && CoilHeating)
@@ -618,6 +679,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             switch (ThisEvent.EventType)
             {
                 case ES_GAME_WON:
+                    StartDispense();
                     if (!WinCelebrationActive) {
                         StartWinCelebration();
                     }
@@ -682,14 +744,29 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             if ((ThisEvent.EventType == ES_TIMEOUT) &&
                 (ThisEvent.EventParam == GAME_SERVICE_TIMER))
             {
-                ES_Event_t InitEvent;
-
-                CurrentState = GAME_INITIALIZING;
-                InitEvent.EventType = ES_INIT;
-                InitEvent.EventParam = 0;
-                if (!PostGameService(InitEvent))
+                if (!LossDisplayed)
                 {
-                    DB_printf("ERROR: Could not restart game service initialization\r\n");
+                    // show LOSS
+                    LossDisplayed = true;
+                    DB_printf("L O S S\r\n");
+                    if (!PostLEDDisplayLoss())
+                    {
+                        DB_printf("ERROR: Could not display LOSS\r\n");
+                    }
+                    ES_Timer_InitTimer(GAME_SERVICE_TIMER, RESTART_DISPLAY_OFF_DURATION);
+                }
+                else
+                {
+                    // loss finished, restarting
+                    LossDisplayed = false;
+                    if (!PostLEDClearDisplay())
+                    {
+                        DB_printf("ERROR: Could not clear LED display for welcome\r\n");
+                    }
+                    DB_printf("RESTARTING\r\n");
+                    RestartScrollIndex = 0;
+                    CurrentState = GAME_RESTARTING;
+                    ES_Timer_InitTimer(GAME_SERVICE_TIMER, RESTART_SCROLL_INTERVAL);
                 }
             }
             break;
@@ -736,6 +813,16 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                     DB_printf("\r\n[IR SENSOR TEST]\r\n");
                     DB_printf("Raw ADC: %u / 1023\r\n", TestIRValue);
                     DB_printf("Relative reading: %u%%\r\n", (uint16_t)((TestIRValue * 100U) / 1023U));
+                    break;
+
+                case ES_INPUT_BEAM_BROKEN:
+                    DB_printf("\r\n[BEAM BREAK TEST]");
+                    DB_printf(" BEAM BROKEN - RB4\r\n");
+                    break;
+
+                case ES_INPUT_BEAM_RESTORED:
+                    DB_printf("[BEAM BREAK TEST]");
+                    DB_printf(" BEAM RESTORED - RB4\r\n");
                     break;
 
                 case ES_NEW_KEY:
@@ -905,7 +992,6 @@ static int16_t ShakeSpeedForPot(uint16_t PotReading)
     {
         Distance = (int32_t)((StirTargetRanges[CurrentStirTarget].Low - PotReading));
     }
-    DB_printf("DISTANCE (%u)\r\n", Distance);
 
     int32_t Speed = SOUP_SHAKE_MAX_SPEED * (1023 - Distance) / 1023;
 
@@ -930,6 +1016,84 @@ static void SetSoupSpeed(int16_t Speed)
     {
         DB_printf("ERROR: Could not post soup servo speed\r\n");
     }
+}
+
+// spin until the beam is established
+static void PrimeDispenser(void)
+{
+    if (DispensePhase != DISPENSE_IDLE)
+    {
+        return;     // already running
+    }
+
+    if (!QueryBeamBroken())
+    {
+        DB_printf("DISPENSER READY (beam established)\r\n");
+        return;
+    }
+
+    DispensePhase = DISPENSE_PRIMING;
+    DB_printf("PRIMING DISPENSER until beam is established\r\n");
+    PostServoCommand(ES_SERVO_DISPENSE_START);
+    ES_Timer_InitTimer(DISPENSE_TIMER, DISPENSE_TIMEOUT);
+}
+
+// spin until the beam is broken and then restored on win
+static void StartDispense(void)
+{
+    // If the beam is already broken, wait for it to restore
+    DispensePhase = QueryBeamBroken() ? DISPENSE_WAIT_RESTORE
+                                      : DISPENSE_WAIT_BREAK;
+    DB_printf("DISPENSING\r\n");
+    PostServoCommand(ES_SERVO_DISPENSE_START);
+    ES_Timer_InitTimer(DISPENSE_TIMER, DISPENSE_TIMEOUT);
+}
+
+static void UpdateDispense(ES_Event_t ThisEvent)
+{
+    if (DispensePhase == DISPENSE_IDLE)
+    {
+        return;
+    }
+
+    if ((ThisEvent.EventType == ES_TIMEOUT) &&
+        (ThisEvent.EventParam == DISPENSE_TIMER))
+    {
+        DB_printf("DISPENSE TIMEOUT (phase %u)\r\n",
+                  (unsigned int)DispensePhase);
+        StopDispense();
+        return;
+    }
+
+    switch (DispensePhase)
+    {
+        case DISPENSE_WAIT_BREAK:
+            if (ThisEvent.EventType == ES_INPUT_BEAM_BROKEN)
+            {
+                DB_printf("TREAT DETECTED\r\n");
+                DispensePhase = DISPENSE_WAIT_RESTORE;
+            }
+            break;
+
+        case DISPENSE_PRIMING:
+        case DISPENSE_WAIT_RESTORE:
+            if (ThisEvent.EventType == ES_INPUT_BEAM_RESTORED)
+            {
+                StopDispense();
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
+static void StopDispense(void)
+{
+    DispensePhase = DISPENSE_IDLE;
+    ES_Timer_StopTimer(DISPENSE_TIMER);
+    PostServoCommand(ES_SERVO_DISPENSE_STOP);
+    DB_printf("DISPENSE COMPLETE\r\n");
 }
 
 
@@ -1004,7 +1168,6 @@ static void UpdateCoilHeating(uint16_t IRReading)
         {
             int16_t Distance = HeatWindowLow() - IRReading;
             SetAllNeoPixels(200, 0 + Distance, 0);
-            DB_printf("DISTANCE (%u)\r\n", Distance);
             UpdateNeoPixels();
 
         }
@@ -1016,12 +1179,10 @@ static void UpdateCoilHeating(uint16_t IRReading)
                 Distance = 200;
             }
             SetAllNeoPixels(200 - Distance, 0, 0 + Distance);
-            DB_printf("DISTANCE (%u)\r\n", Distance);
             UpdateNeoPixels();
         }
     }
 }
-
 
 static void PostServoCommand(ES_EventType_t Command)
 {
@@ -1054,6 +1215,7 @@ static void StartWinCelebration(void)
     SetSoupSpeed(SOUP_STIR_SPEED);
     SetNeoPixelRainbow(WinRainbowPhase);
     UpdateNeoPixels();
+
 
     ES_Timer_InitTimer(WIN_CELEBRATION_TIMER, WIN_ANIMATION_STEP);
 }
@@ -1126,7 +1288,7 @@ static void UpdateGameTimer(void)
     }
 
     DB_printf("GAME TIME: %u\r\n", GameTime);
-    if (!PostLEDDisplayNumber(GameTime))
+    if (!PostLEDDisplayTimer(GameTime, GameProgress))
     {
         DB_printf("ERROR: Could not update game timer display\r\n");
     }
@@ -1134,8 +1296,10 @@ static void UpdateGameTimer(void)
     if (GameTime == 0U)
     {
         GameTimerActive = false;
+        ClearNeoPixels();
         StopGameTimers();
         CurrentState = GAME_LOSING;
+        LossDisplayed = false;
         DB_printf("TIME UP\r\n");
         bool SoupServoWasActive = SoupStirring || SoupShaking;
         SoupStirring = false;
@@ -1144,8 +1308,6 @@ static void UpdateGameTimer(void)
         {
             PostServoCommand(ES_SERVO_SOUP_STOP);
         }
-        SetAllNeoPixels(0, 0, 0);
-        UpdateNeoPixels();
         ES_Timer_InitTimer(GAME_SERVICE_TIMER, COUNTDOWN_DURATION);
     }
     else
@@ -1172,11 +1334,15 @@ static void CompleteTask(void)
 {
     UpdateGameProgress();
 
-    // UpdateGameProgress switches to GAME_WINNING on the final point
     if (CurrentState != GAME_WINNING)
     {
         CurrentState = GAME_SELECT_TASK;
         ES_Timer_InitTimer(SEQUENCE_TIMER, TASK_GAP_DURATION);
+
+        if (!PostLEDDisplayTimer(GameTime, GameProgress))
+        {
+            DB_printf("ERROR: Could not update progress bar\r\n");
+        }
     }
 }
 
@@ -1221,10 +1387,8 @@ static void EnterWelcomeMode(void)
 
     DB_printf("BROTH OF DUTY\r\n");
 
-    // Light the start button while waiting for a player
     START_LED = LED_ON;
 
-    // Coil strip off until the heat task lights it
     ClearNeoPixels();
     UpdateNeoPixels();
 
@@ -1233,8 +1397,9 @@ static void EnterWelcomeMode(void)
         DB_printf("ERROR: Could not clear LED display for welcome\r\n");
     }
 
-    // LED welcome display will be implemented
-    // through the LEDService interface.
+    // Start scrolling the welcome message (handled in GAME_WELCOME)
+    WelcomeScrollIndex = 0;
+    ES_Timer_InitTimer(GAME_SERVICE_TIMER, WELCOME_SCROLL_INTERVAL);
 }
 
 static void StopGameTimers(void)
