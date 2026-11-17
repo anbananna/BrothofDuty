@@ -115,6 +115,15 @@ ES_Event_t RunServoService(ES_Event_t ThisEvent)
             SetCarrotAngle(CARROT_CLOSED_DEG);
             break;
 
+        case ES_SERVO_CARROT_SET_ANGLE:
+            if (ThisEvent.EventParam <= 180U)
+            {
+                uint8_t Degrees = (uint8_t)ThisEvent.EventParam;
+                SetCarrotAngle(Degrees);
+                DB_printf("Carrot angle: %u degrees\r\n", Degrees);
+            }
+            break;
+
         case ES_SERVO_SOUP_SPEED:
         {
             int16_t Speed = (int16_t)ThisEvent.EventParam;

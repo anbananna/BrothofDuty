@@ -48,7 +48,7 @@
 #define BEAM_BROKEN_LEVEL       0
 
 // Analog change thresholds
-#define POT_CHANGE_THRESHOLD    8
+#define POT_CHANGE_THRESHOLD    1
 #define IR_CHANGE_THRESHOLD     8
 
 // ADC channels

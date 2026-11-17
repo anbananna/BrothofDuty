@@ -13,6 +13,10 @@
 #define CHAR_QUEUE_SIZE 8
 #define DISPLAY_WIDTH_COLUMNS 32U
 #define FONT_CHAR_WIDTH_COLUMNS 4U
+#define TIMER_SECOND_DIGIT_PADDING 1U
+#define TIMER_MIDDLE_PANEL_START 8U
+#define TIMER_MIDDLE_PANEL_WIDTH 16U
+#define TIMER_VISIBLE_EVENT_FLAG 0x8000U
 #define COUNTDOWN_ELLIPSIS_ROW 4U
 #define COUNTDOWN_ELLIPSIS_BITS 0x49U
 #define PROGRESS_ROW_TOP        6U   // bottom 2 rows of the matrix
@@ -36,6 +40,7 @@ static uint8_t CharQueueCount = 0;
 static uint8_t PendingNumber;
 static uint8_t PendingProgress;
 static uint8_t PendingCountdown;
+static bool PendingTimerVisible = true;
 static bool NumberPending = false;
 static bool CountdownPending = false;
 static bool CongratsPending = false;
@@ -47,6 +52,7 @@ static bool PostNextLEDService(ES_EventType_t EventType);
 static bool EnqueueChar(unsigned char NextChar);
 static bool DrawCenteredText(const char *Text);
 static bool DrawCenteredCountdown(uint8_t Remaining);
+static bool DrawTimerCenteredInMiddlePanels(uint8_t Number);
 static void DrawProgressBar(uint8_t TasksComplete);
 static bool DequeueChar(unsigned char *NextChar);
 static void StartNextChar(void);
@@ -84,6 +90,15 @@ bool PostLEDDisplayNumber(uint8_t Number)
 
 bool PostLEDDisplayTimer(uint8_t Number, uint8_t TasksComplete)
 {
+    return PostLEDDisplayTimerWithVisibility(Number, TasksComplete, true);
+}
+
+bool PostLEDDisplayTimerWithVisibility(
+    uint8_t Number,
+    uint8_t TasksComplete,
+    bool TimerVisible
+)
+{
     ES_Event_t ThisEvent;
 
     if (Number > 99U) {
@@ -93,9 +108,12 @@ bool PostLEDDisplayTimer(uint8_t Number, uint8_t TasksComplete)
         TasksComplete = PROGRESS_MAX_TASKS;
     }
 
-    // Low byte: number to show, high byte: completed task count
+    // Low byte: timer value; upper byte: progress plus timer visibility flag.
     ThisEvent.EventType = ES_LED_SET_NUMBER;
-    ThisEvent.EventParam = (uint16_t)(((uint16_t)TasksComplete << 8) | Number);
+    ThisEvent.EventParam = (uint16_t)(
+        ((uint16_t)TasksComplete << 8) |
+        Number |
+        (TimerVisible ? TIMER_VISIBLE_EVENT_FLAG : 0U));
     return PostLEDService(ThisEvent);
 }
 
@@ -203,7 +221,10 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             uint8_t Number = (uint8_t)(ThisEvent.EventParam & 0xFFU);
             if (Number <= 99U) {
                 PendingNumber = Number;
-                PendingProgress = (uint8_t)(ThisEvent.EventParam >> 8);
+                PendingProgress =
+                    (uint8_t)((ThisEvent.EventParam >> 8) & 0x7FU);
+                PendingTimerVisible =
+                    ((ThisEvent.EventParam & TIMER_VISIBLE_EVENT_FLAG) != 0U);
                 NumberPending = true;
                 CountdownPending = false;
                 GoPending = false;
@@ -438,6 +459,54 @@ static bool DrawCenteredCountdown(uint8_t Remaining)
     return true;
 }
 
+static bool DrawTimerCenteredInMiddlePanels(uint8_t Number)
+{
+    uint8_t FontRow;
+    uint8_t DigitCount = (Number >= 10U) ? 2U : 1U;
+    uint8_t ContentWidth = (uint8_t)(DigitCount * FONT_CHAR_WIDTH_COLUMNS);
+    uint8_t LeftMargin;
+
+    if (DigitCount == 2U)
+    {
+        ContentWidth += TIMER_SECOND_DIGIT_PADDING;
+    }
+
+    LeftMargin = (uint8_t)(
+        TIMER_MIDDLE_PANEL_START +
+        ((TIMER_MIDDLE_PANEL_WIDTH - ContentWidth) / 2U));
+
+    if (Number > 99U)
+    {
+        return false;
+    }
+
+    for (FontRow = 0; FontRow < 5U; FontRow++)
+    {
+        uint32_t RowData;
+
+        if (DigitCount == 2U)
+        {
+            RowData =
+                ((uint32_t)getFontLine(
+                     (unsigned char)('0' + (Number / 10U)), FontRow)
+                 << (FONT_CHAR_WIDTH_COLUMNS + TIMER_SECOND_DIGIT_PADDING)) |
+                getFontLine((unsigned char)('0' + (Number % 10U)), FontRow);
+        }
+        else
+        {
+            RowData = getFontLine((unsigned char)('0' + Number), FontRow);
+        }
+
+        RowData <<= LeftMargin;
+        if (!DM_PutDataIntoBufferRow(RowData, FontRow))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 // Fills the bottom 2 rows from the left, 4 columns per completed task
 static void DrawProgressBar(uint8_t TasksComplete)
@@ -581,11 +650,13 @@ static void StartNextDisplayItem(void)
         NumberPending = false;
         DM_ClearDisplayBuffer();
 
-        if (PendingNumber >= 10U) {
-            DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber / 10U)));
-            DM_ScrollDisplayBuffer(8U);
+        if (PendingTimerVisible &&
+            !DrawTimerCenteredInMiddlePanels(PendingNumber))
+        {
+            NumberPending = true;
+            DB_printf("ERROR: Could not draw game timer\r\n");
+            return;
         }
-        DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber % 10U)));
         DrawProgressBar(PendingProgress);
 
         CurrentState = LED_UPDATING;
