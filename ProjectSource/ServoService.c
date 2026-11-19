@@ -46,20 +46,28 @@
 
 // Continuous servos, 1.5 ms is stop, +/- 0.5 ms is full speed either way
 #define CONT_SPEED_SPAN         1250    // 0.5 ms
-#define DISPENSE_SPEED          60      // percent, -100..100; flip sign to reverse
+#define DISPENSE_SPEED          -20      // percent, -100..100; flip sign to reverse
+// #define DISPENSE_SPEED          50
 
 // Carrot (180 deg) servo positions. Many hobby servos use 0.5-2.5 ms for the
 // full 180 deg; calibrate these on the real hardware.
 #define CARROT_MIN_PULSE        1250    // 0.5 ms  ->   0 deg
 #define CARROT_MAX_PULSE        6250    // 2.5 ms  -> 180 deg
-#define CARROT_CLOSED_DEG       0
-#define CARROT_OPEN_DEG         180
+#define CARROT_CLOSED_DEG       180
+#define CARROT_OPEN_DEG         150
+
+// Dispense (180 deg) servo positions.
+#define DISPENSE_MIN_PULSE      1250    // 0.5 ms  ->   0 deg
+#define DISPENSE_MAX_PULSE      6250    // 2.5 ms  -> 180 deg
+#define DISPENSE_CLOSED_DEG     180
+#define DISPENSE_OPEN_DEG       120
 
 /*---------------------------- Module Functions ---------------------------*/
 static void InitServoHardware(void);
 static void SetContinuousSpeed(uint8_t Channel, int16_t SpeedPercent);
 static void StopContinuous(uint8_t Channel);
 static void SetCarrotAngle(uint8_t Degrees);
+static void SetDispenseAngle(uint8_t Degrees);
 
 /*---------------------------- Module Variables ---------------------------*/
 static uint8_t MyPriority;
@@ -127,14 +135,33 @@ ES_Event_t RunServoService(ES_Event_t ThisEvent)
             StopContinuous(SOUP_CHANNEL);
             break;
 
-        case ES_SERVO_DISPENSE_START:
-            DB_printf("Dispense Start\r\n");
-            SetContinuousSpeed(DISPENSE_CHANNEL, DISPENSE_SPEED);
+        // case ES_SERVO_DISPENSE_START:
+        //     DB_printf("Dispense Start\r\n");
+        //     SetContinuousSpeed(DISPENSE_CHANNEL, DISPENSE_SPEED);
+        //     break;
+
+        // case ES_SERVO_DISPENSE_STOP:
+        //     DB_printf("Dispense Stop\r\n");
+        //     StopContinuous(DISPENSE_CHANNEL);
+        //     break;
+
+        case ES_SERVO_DISPENSE_OPEN:
+            DB_printf("Dispense Open\r\n");
+            SetDispenseAngle(DISPENSE_OPEN_DEG);
             break;
 
-        case ES_SERVO_DISPENSE_STOP:
-            DB_printf("Dispense Stop\r\n");
-            StopContinuous(DISPENSE_CHANNEL);
+        case ES_SERVO_DISPENSE_CLOSE:
+            DB_printf("Dispense Close\r\n");
+            SetDispenseAngle(DISPENSE_CLOSED_DEG);
+            break;
+
+        case ES_SERVO_DISPENSE_SET_ANGLE:
+            if (ThisEvent.EventParam <= 180U)
+            {
+                uint8_t Degrees = (uint8_t)ThisEvent.EventParam;
+                SetDispenseAngle(Degrees);
+                DB_printf("Dispense angle: %u degrees\r\n", Degrees);
+            }
             break;
 
         // case ES_NEW_KEY:
@@ -177,9 +204,10 @@ static void InitServoHardware(void)
     }
 
     // Safe startup state
-    StopContinuous(DISPENSE_CHANNEL);
+    // StopContinuous(DISPENSE_CHANNEL);
     StopContinuous(SOUP_CHANNEL);
     SetCarrotAngle(CARROT_CLOSED_DEG);
+    SetDispenseAngle(DISPENSE_CLOSED_DEG);
 }
 
 static void SetContinuousSpeed(uint8_t Channel, int16_t SpeedPercent)
@@ -221,4 +249,18 @@ static void SetCarrotAngle(uint8_t Degrees)
                      ((uint32_t)Degrees * (CARROT_MAX_PULSE - CARROT_MIN_PULSE)) / 180;
 
     PWMOperate_SetPulseWidthOnChannel((uint16_t)Pulse, CARROT_CHANNEL);
+}
+
+
+static void SetDispenseAngle(uint8_t Degrees)
+{
+    if (Degrees > 180)
+    {
+        Degrees = 180;
+    }
+
+    uint32_t Pulse = DISPENSE_MIN_PULSE +
+                     ((uint32_t)Degrees * (DISPENSE_MAX_PULSE - DISPENSE_MIN_PULSE)) / 180;
+
+    PWMOperate_SetPulseWidthOnChannel((uint16_t)Pulse, DISPENSE_CHANNEL);
 }

@@ -192,17 +192,7 @@ static uint16_t TestCarrotPressCount = 0;
 static uint16_t TestPotValue = 0;
 static uint16_t TestIRValue = 0;
 static uint16_t TestBeamBreak = 0;
-
-// Dispense servo phases
-typedef enum
-{
-    DISPENSE_IDLE,          // servo off
-    DISPENSE_PRIMING,       // init spin until the beam is established
-    DISPENSE_WAIT_BREAK,    // spin until a treat breaks the beam
-    DISPENSE_WAIT_RESTORE   // then until the beam is restored
-} DispensePhase_t;
-
-static DispensePhase_t DispensePhase = DISPENSE_IDLE;
+static uint8_t IRCalibration = 200;
 
 static bool WinCelebrationActive = false;
 static bool WinCarrotOpen = false;
@@ -227,7 +217,6 @@ static void StartSoupShake(void);
 static void StopSoupShake(void);
 static int16_t ShakeSpeedForPot(uint16_t PotReading);
 static void SetSoupSpeed(int16_t Speed);
-static void PrimeDispenser(void);
 static void StartDispense(void);
 static void UpdateDispense(ES_Event_t ThisEvent);
 static void StopDispense(void);
@@ -286,6 +275,96 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
     ReturnEvent.EventType = ES_NO_EVENT;
     ReturnEvent.EventParam = 0;
 
+    if (InactivityTimerActive)
+    {
+        bool UserResponded = false;
+
+        switch (ThisEvent.EventType)
+        {
+            case ES_INPUT_START_PRESSED:
+            case ES_INPUT_START_RELEASED:
+            case ES_INPUT_CARROT_PRESSED:
+            case ES_INPUT_CARROT_RELEASED:
+            case ES_INPUT_BEAM_BROKEN:
+            case ES_INPUT_BEAM_RESTORED:
+                UserResponded = true;
+                break;
+
+            case ES_INPUT_POT_CHANGED:
+            {
+                uint16_t PotReading = ThisEvent.EventParam;
+                uint16_t PotChange = (PotReading >= LastInactivityPotValue) ?
+                    (uint16_t)(PotReading - LastInactivityPotValue) :
+                    (uint16_t)(LastInactivityPotValue - PotReading);
+
+                if (PotChange >= INACTIVITY_POT_CHANGE_THRESHOLD)
+                {
+                    LastInactivityPotValue = PotReading;
+                    UserResponded = true;
+                }
+                break;
+            }
+
+            case ES_INPUT_IR_CHANGED:
+            {
+                uint16_t IRReading = ThisEvent.EventParam;
+                uint16_t IRChange = (IRReading >= LastInactivityIRValue) ?
+                    (uint16_t)(IRReading - LastInactivityIRValue) :
+                    (uint16_t)(LastInactivityIRValue - IRReading);
+
+                if (IRChange >= INACTIVITY_IR_CHANGE_THRESHOLD)
+                {
+                    LastInactivityIRValue = IRReading;
+                    UserResponded = true;
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        // if ((CurrentState == GAME_CUT_CARROT) &&
+        //     CarrotInputEnabled &&
+        //     (ThisEvent.EventType == ES_INPUT_CARROT_PRESSED))
+        // {
+        //     UserResponded = true;
+        // }
+        // else if ((CurrentState == GAME_STIR_POT) &&
+        //          (ThisEvent.EventType == ES_INPUT_POT_CHANGED))
+        // {
+        //     uint16_t PotReading = ThisEvent.EventParam;
+        //     uint16_t PotChange = (PotReading >= LastInactivityPotValue) ?
+        //         (uint16_t)(PotReading - LastInactivityPotValue) :
+        //         (uint16_t)(LastInactivityPotValue - PotReading);
+
+        //     if (PotChange >= INACTIVITY_POT_CHANGE_THRESHOLD)
+        //     {
+        //         LastInactivityPotValue = PotReading;
+        //         UserResponded = true;
+        //     }
+        // }
+        // else if ((CurrentState == GAME_HEAT_COIL) &&
+        //          (ThisEvent.EventType == ES_INPUT_IR_CHANGED))
+        // {
+        //     uint16_t IRReading = ThisEvent.EventParam;
+        //     uint16_t IRChange = (IRReading >= LastInactivityIRValue) ?
+        //         (uint16_t)(IRReading - LastInactivityIRValue) :
+        //         (uint16_t)(LastInactivityIRValue - IRReading);
+
+        //     if (IRChange >= INACTIVITY_IR_CHANGE_THRESHOLD)
+        //     {
+        //         LastInactivityIRValue = IRReading;
+        //         UserResponded = true;
+        //     }
+        // }
+
+        if (UserResponded)
+        {
+            ES_Timer_InitTimer(INACTIVITY_TIMER, INACTIVITY_DURATION);
+        }
+    }
+
     if ((ThisEvent.EventType == ES_TIMEOUT) &&
         (ThisEvent.EventParam == GAME_TIMER) &&
         GameTimerActive)
@@ -300,7 +379,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
         case GAME_INITIALIZING:
             if (ThisEvent.EventType == ES_INIT)
             {
-                PrimeDispenser();
+                PostServoCommand(ES_SERVO_DISPENSE_CLOSE);
                 EnterWelcomeMode();
                 CurrentState = GAME_WELCOME;
                 DB_printf("GAME INITIALIZED\r\n");
@@ -702,6 +781,27 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                 (ThisEvent.EventParam == GAME_SERVICE_TIMER))
             {
                 ES_Event_t InitEvent;
+                bool SoupServoWasActive = SoupStirring || SoupShaking;
+
+                DB_printf("NO USER INPUT FOR %u ms; RESTARTING GAME\r\n",
+                          INACTIVITY_DURATION);
+                GameTimerActive = false;
+                StopGameTimers();
+
+                CarrotInputEnabled = false;
+                CARROT_LED = LED_OFF;
+                PostServoCommand(ES_SERVO_CARROT_CLOSE);
+
+                SoupStirring = false;
+                StopSoupShake();
+                if (SoupServoWasActive)
+                {
+                    PostServoCommand(ES_SERVO_SOUP_STOP);
+                }
+
+                CoilHeating = false;
+                ClearNeoPixels();
+                UpdateNeoPixels();
 
                 CurrentState = GAME_INITIALIZING;
                 InitEvent.EventType = ES_INIT;
@@ -960,81 +1060,32 @@ static void SetSoupSpeed(int16_t Speed)
     }
 }
 
-// spin until the beam is established
-static void PrimeDispenser(void)
-{
-    if (DispensePhase != DISPENSE_IDLE)
-    {
-        return;     // already running
-    }
-
-    if (!QueryBeamBroken())
-    {
-        DB_printf("DISPENSER READY (beam established)\r\n");
-        return;
-    }
-
-    DispensePhase = DISPENSE_PRIMING;
-    DB_printf("PRIMING DISPENSER until beam is established\r\n");
-    PostServoCommand(ES_SERVO_DISPENSE_START);
-    ES_Timer_InitTimer(DISPENSE_TIMER, DISPENSE_TIMEOUT);
-}
-
 // spin until the beam is broken and then restored on win
 static void StartDispense(void)
 {
     // If the beam is already broken, wait for it to restore
-    DispensePhase = QueryBeamBroken() ? DISPENSE_WAIT_RESTORE
-                                      : DISPENSE_WAIT_BREAK;
+    // DispensePhase = QueryBeamBroken() ? DISPENSE_WAIT_RESTORE
+                                    //   : DISPENSE_WAIT_BREAK;
     DB_printf("DISPENSING\r\n");
-    PostServoCommand(ES_SERVO_DISPENSE_START);
+    PostServoCommand(ES_SERVO_DISPENSE_OPEN);
     ES_Timer_InitTimer(DISPENSE_TIMER, DISPENSE_TIMEOUT);
 }
 
 static void UpdateDispense(ES_Event_t ThisEvent)
 {
-    if (DispensePhase == DISPENSE_IDLE)
-    {
-        return;
-    }
-
     if ((ThisEvent.EventType == ES_TIMEOUT) &&
         (ThisEvent.EventParam == DISPENSE_TIMER))
     {
-        DB_printf("DISPENSE TIMEOUT (phase %u)\r\n",
-                  (unsigned int)DispensePhase);
+        DB_printf("DISPENSE TIMEOUT \r\n");
         StopDispense();
         return;
-    }
-
-    switch (DispensePhase)
-    {
-        case DISPENSE_WAIT_BREAK:
-            if (ThisEvent.EventType == ES_INPUT_BEAM_BROKEN)
-            {
-                DB_printf("TREAT DETECTED\r\n");
-                DispensePhase = DISPENSE_WAIT_RESTORE;
-            }
-            break;
-
-        case DISPENSE_PRIMING:
-        case DISPENSE_WAIT_RESTORE:
-            if (ThisEvent.EventType == ES_INPUT_BEAM_RESTORED)
-            {
-                StopDispense();
-            }
-            break;
-
-        default:
-            break;
     }
 }
 
 static void StopDispense(void)
 {
-    DispensePhase = DISPENSE_IDLE;
     ES_Timer_StopTimer(DISPENSE_TIMER);
-    PostServoCommand(ES_SERVO_DISPENSE_STOP);
+    PostServoCommand(ES_SERVO_DISPENSE_CLOSE);
     DB_printf("DISPENSE COMPLETE\r\n");
 }
 
