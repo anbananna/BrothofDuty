@@ -32,19 +32,21 @@
 /*******************************
    Module Defines
  *******************************/
-#define MAX_GAME_PROGRESS       5
+#define MAX_GAME_PROGRESS       8
 #define GAME_DURATION           60000
 #define GAME_TIMER_TICK         1000U
+#define TIMER_BLINK_START_SECONDS 10U
+#define TIMER_BLINK_FAST_SECONDS 5U
+#define TIMER_BLINK_SLOW_INTERVAL 500U
+#define TIMER_BLINK_FAST_INTERVAL 250U
 #define INACTIVITY_DURATION     20000
-#define INTERACTION_DURATION    2000
+#define INTERACTION_DURATION    1500
 #define COUNTDOWN_DURATION      1000    // ms per countdown step
 #define COUNTDOWN_SECONDS       3
 
 // Carrot task
-#define CARROT_PRESSES_MIN      2U
-#define CARROT_PRESSES_MAX      5U
-#define CARROT_BLINK_DURATION   500U
-#define CARROT_SERVO_OPEN_DURATION 500U
+#define CARROT_PRESSES_REQUIRED 18U
+#define CARROT_SERVO_STEP_DEGREES 1U
 #define CARROT_SERVO_CLOSE_DURATION 500U
 #define CARROT_LED              LATAbits.LATA3
 #define CARROT_LED_TRIS         TRISAbits.TRISA3
@@ -54,6 +56,10 @@
 #define RESTART_DISPLAY_OFF_DURATION 2000U
 #define RESTART_SCROLL_INTERVAL     250U
 #define RESTART_SCROLL_PADDING      8U
+
+#define WELCOME_DISPLAY_OFF_DURATION 2000U
+#define WELCOME_SCROLL_INTERVAL     250U
+#define WELCOME_SCROLL_PADDING      8U
 
 // Start button LED (the switch itself is on RB3)
 #define START_LED               LATBbits.LATB10
@@ -68,7 +74,10 @@
 #define SOUP_SHAKE_MAX_SPEED    SOUP_STIR_SPEED
 
 #define HEAT_RISE_TARGET        150     // counts above ambient at the right height
-#define HEAT_TOLERANCE_COUNTS   20
+#define HEAT_TOLERANCE_COUNTS   25
+// Require meaningful movement so ADC noise does not keep resetting inactivity.
+#define INACTIVITY_POT_CHANGE_THRESHOLD 8U
+#define INACTIVITY_IR_CHANGE_THRESHOLD  15
 
 #define HEAT_TARGET_VARIANT_COUNT 3U
 #define HEAT_TARGET_STEP_COUNTS   40U
@@ -83,9 +92,9 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
 };
 
 // Pause between finishing one task and starting the next
-#define TASK_GAP_DURATION       2500
+#define TASK_GAP_DURATION       500
 
-#define WIN_CELEBRATION_DURATION 5000U
+#define WIN_CELEBRATION_DURATION 15000U
 #define WIN_ANIMATION_STEP       100U
 #define WIN_TOGGLE_INTERVAL_STEPS 5U
 #define WIN_ANIMATION_TOTAL_STEPS \
@@ -93,7 +102,7 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
 #define WIN_RAINBOW_PHASE_STEP   8U
 #define WIN_CELEBRATION_TIMER    GAME_SERVICE_TIMER
 
-#define DISPENSE_TIMEOUT         5000U
+#define DISPENSE_TIMEOUT         3000U
 
 
 /*******************************
@@ -162,19 +171,24 @@ static uint8_t GameTime = GAME_DURATION / 1000;
 static uint8_t CountdownRemaining = 0;
 static bool CountdownShowingGo = false;
 static bool GameTimerActive = false;
+static bool TimerBlinkActive = false;
+static bool TimerDisplayVisible = true;
+static bool InactivityTimerActive = false;
 
 static GameTask_t LastTask = TASK_COUNT;
 
-static uint8_t TargetButtonPresses = 0;
 static uint8_t DetectedButtonPresses = 0;
-static uint8_t CarrotBlinksRemaining = 0;
-static bool CarrotBlinkOn = false;
 static bool CarrotInputEnabled = false;
-static bool CarrotServoOpening = false;
-static bool CarrotServoClosing = false;
+static bool CarrotEntryOpenBeforeClose = false;
+static uint8_t CarrotServoCommandedAngle = 0;
+static uint16_t LastInactivityPotValue = 0;
+static uint16_t LastInactivityIRValue = 0;
 
-static const char RestartingMessage[] = "restarting....";
+static const char RestartingMessage[] = "Restarting...";
+static const char WelcomeMessage[] = "Welcome to Broth of Duty!";
 static uint8_t RestartScrollIndex = 0;
+static uint8_t WelcomeScrollIndex = 0;
+static bool LossDisplayed = false;
 
 static uint16_t DetectedPotValue = 0;
 static StirTarget_t CurrentStirTarget;
@@ -210,7 +224,6 @@ static void UpdateGameProgress(void);
 static void CompleteTask(void);
 static void EnterWelcomeMode(void);
 static void EnterCarrotTask(void);
-static void StartCarrotBlinkSequence(void);
 static void EnterStirTask(void);
 static void UpdateSoupStirring(uint16_t PotReading);
 static void StartSoupShake(void);
@@ -225,6 +238,7 @@ static uint16_t HeatWindowLow(void);
 static uint16_t HeatWindowHigh(void);
 static void UpdateCoilHeating(uint16_t IRReading);
 static void PostServoCommand(ES_EventType_t Command);
+static void PostCarrotServoAngle(uint8_t Degrees);
 static void StartWinCelebration(void);
 static void UpdateWinCelebration(void);
 static void UpdateGameTimer(void);
@@ -372,6 +386,32 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
         UpdateGameTimer();
     }
 
+    if ((ThisEvent.EventType == ES_TIMEOUT) &&
+        (ThisEvent.EventParam == GAME_SERVICE_TIMER) &&
+        TimerBlinkActive &&
+        GameTimerActive)
+    {
+        TimerDisplayVisible = !TimerDisplayVisible;
+        if (!PostLEDDisplayTimerWithVisibility(
+                GameTime, GameProgress, TimerDisplayVisible))
+        {
+            DB_printf("ERROR: Could not update blinking game timer\r\n");
+        }
+
+        ES_Timer_InitTimer(
+            GAME_SERVICE_TIMER,
+            (GameTime <= TIMER_BLINK_FAST_SECONDS) ?
+                TIMER_BLINK_FAST_INTERVAL : TIMER_BLINK_SLOW_INTERVAL);
+    }
+
+    if ((ThisEvent.EventType == ES_TIMEOUT) &&
+        (ThisEvent.EventParam == INACTIVITY_TIMER) &&
+        InactivityTimerActive)
+    {
+        InactivityTimerActive = false;
+        CurrentState = GAME_INACTIVE;
+    }
+
     UpdateDispense(ThisEvent);
 
     switch (CurrentState)
@@ -390,7 +430,43 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             // DB_printf("In GAME WELCOME\r\n");
             switch (ThisEvent.EventType)
             {
-                case ES_GAME_START:
+                case ES_TIMEOUT:
+                    // Scroll the welcome message on repeat until start is pressed
+                    if (ThisEvent.EventParam == GAME_SERVICE_TIMER)
+                    {
+                        const uint8_t MessageLength =
+                            (uint8_t)(sizeof(WelcomeMessage) - 1U);
+                        const uint8_t TotalCharacters =
+                            (uint8_t)(MessageLength + WELCOME_SCROLL_PADDING);
+
+                        if (WelcomeScrollIndex < TotalCharacters)
+                        {
+                            ES_Event_t LEDCharEvent;
+                            LEDCharEvent.EventType = ES_LED_ADD_CHAR;
+                            LEDCharEvent.EventParam =
+                                (WelcomeScrollIndex < MessageLength) ?
+                                (uint8_t)WelcomeMessage[WelcomeScrollIndex] : ' ';
+
+                            if (PostLEDService(LEDCharEvent))
+                            {
+                                WelcomeScrollIndex++;
+                            }
+                            else
+                            {
+                                DB_printf("ERROR: Could not post welcome message character\r\n");
+                            }
+                            ES_Timer_InitTimer(GAME_SERVICE_TIMER,
+                                               WELCOME_SCROLL_INTERVAL);
+                        }
+                        else
+                        {
+                            // Message fully scrolled off: pause, then repeat
+                            WelcomeScrollIndex = 0;
+                            ES_Timer_InitTimer(GAME_SERVICE_TIMER,
+                                               WELCOME_DISPLAY_OFF_DURATION);
+                        }
+                    }
+                    break;
                 case ES_INPUT_START_PRESSED:
                     DB_printf("GAME STARTED\r\n");
                     START_LED = LED_OFF;
@@ -456,8 +532,11 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                     GameTime = GAME_DURATION / 1000U;
                     GameTimerActive = true;
+                    TimerBlinkActive = false;
+                    TimerDisplayVisible = true;
                     DB_printf("GAME TIMER STARTED: %u\r\n", GameTime);
-                    if (!PostLEDDisplayNumber(GameTime))
+                    if (!PostLEDDisplayTimerWithVisibility(
+                            GameTime, GameProgress, TimerDisplayVisible))
                     {
                         DB_printf("ERROR: Could not display game timer\r\n");
                     }
@@ -502,6 +581,8 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                 ((ThisEvent.EventType == ES_TIMEOUT) &&
                  (ThisEvent.EventParam == SEQUENCE_TIMER)))
             {
+                ES_Timer_StopTimer(INACTIVITY_TIMER);
+                InactivityTimerActive = false;
                 AssignNewTask();
                 switch (CurrentTask)
                 {
@@ -518,6 +599,21 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                         CurrentState = GAME_HEAT_COIL;
                         break;
                 }
+
+                if (CurrentState == GAME_STIR_POT)
+                {
+                    LastInactivityPotValue = QueryPotValue();
+                    InactivityTimerActive = true;
+                    ES_Timer_InitTimer(INACTIVITY_TIMER,
+                                       INACTIVITY_DURATION);
+                }
+                else if (CurrentState == GAME_HEAT_COIL)
+                {
+                    LastInactivityIRValue = QueryIRValue();
+                    InactivityTimerActive = true;
+                    ES_Timer_InitTimer(INACTIVITY_TIMER,
+                                       INACTIVITY_DURATION);
+                }
             }
             break;
 
@@ -527,92 +623,68 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                 case ES_INPUT_CARROT_PRESSED:
                     if (CarrotInputEnabled)
                     {
-                        // Finish after the required presses and an interaction interval without a press.
-                        ES_Timer_InitTimer(INTERACTION_TIMER, INTERACTION_DURATION);
-
-                        if (DetectedButtonPresses <= TargetButtonPresses)
+                        if (DetectedButtonPresses < CARROT_PRESSES_REQUIRED)
                         {
                             DetectedButtonPresses++;
+                            DB_printf("CARROT CHOP %u / %u\r\n",
+                                      DetectedButtonPresses,
+                                      CARROT_PRESSES_REQUIRED);
+
+                            if (DetectedButtonPresses < CARROT_PRESSES_REQUIRED)
+                            {
+                                PostCarrotServoAngle(
+                                    (uint8_t)(180 - DetectedButtonPresses *
+                                              CARROT_SERVO_STEP_DEGREES));
+                            }
+                            else
+                            {
+                                CarrotInputEnabled = false;
+                                CARROT_LED = LED_OFF;
+                                PostServoCommand(ES_SERVO_CARROT_OPEN);
+
+                                ES_Event_t DoneEvent;
+                                DoneEvent.EventType = ES_CARROT_TASK_COMPLETE;
+                                DoneEvent.EventParam = 0;
+                                if (!PostGameService(DoneEvent))
+                                {
+                                    DB_printf("ERROR: Could not post carrot task completion\r\n");
+                                }
+                            }
                         }
-                        DB_printf("CARROT CHOP %u / %u\r\n",
-                                  DetectedButtonPresses,
-                                  TargetButtonPresses);
                     }
                     break;
 
                 case ES_TIMEOUT:
                     if ((ThisEvent.EventParam == SEQUENCE_TIMER) &&
-                        CarrotServoOpening)
-                    {
-                        CarrotServoOpening = false;
-                        CarrotServoClosing = true;
-                        PostServoCommand(ES_SERVO_CARROT_CLOSE);
-                        ES_Timer_InitTimer(SEQUENCE_TIMER,
-                                           CARROT_SERVO_CLOSE_DURATION);
-                    }
-                    else if ((ThisEvent.EventParam == SEQUENCE_TIMER) &&
-                             CarrotServoClosing)
-                    {
-                        CarrotServoClosing = false;
-                        StartCarrotBlinkSequence();
-                    }
-                    else if ((ThisEvent.EventParam == SEQUENCE_TIMER) &&
                         !CarrotInputEnabled)
                     {
-                        if (CarrotBlinkOn)
+                        if (CarrotEntryOpenBeforeClose)
                         {
-                            CARROT_LED = LED_OFF;
-                            CarrotBlinkOn = false;
-                            CarrotBlinksRemaining--;
-
-                            if (CarrotBlinksRemaining == 0U)
-                            {
-                                CarrotInputEnabled = true;
-                                DB_printf("BLINKING COMPLETE. Press the carrot button %u times.\r\n",
-                                          TargetButtonPresses);
-                            }
-                            else
-                            {
-                                ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_BLINK_DURATION);
-                            }
+                            CarrotEntryOpenBeforeClose = false;
+                            PostServoCommand(ES_SERVO_CARROT_CLOSE);
+                            ES_Timer_InitTimer(
+                                SEQUENCE_TIMER,
+                                CARROT_SERVO_CLOSE_DURATION);
                         }
                         else
                         {
+                            CarrotInputEnabled = true;
                             CARROT_LED = LED_ON;
-                            CarrotBlinkOn = true;
-                            ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_BLINK_DURATION);
-                        }
-                    }
-                    else if ((ThisEvent.EventParam == INTERACTION_TIMER) &&
-                             CarrotInputEnabled)
-                    {
-                        if (DetectedButtonPresses == TargetButtonPresses)
-                        {
-                            ES_Event_t DoneEvent;
-                            DoneEvent.EventType = ES_CARROT_TASK_COMPLETE;
-                            DoneEvent.EventParam = 0;
-                            if (!PostGameService(DoneEvent))
-                            {
-                                DB_printf("ERROR: Could not post carrot task completion\r\n");
-                            }
-                        }
-                        else if (DetectedButtonPresses > TargetButtonPresses)
-                        {
-                            DB_printf("TOO MANY PRESSES. Try the carrot task again.\r\n");
-                            DetectedButtonPresses = 0;
-                            StartCarrotBlinkSequence();
+                            InactivityTimerActive = true;
+                            ES_Timer_InitTimer(INACTIVITY_TIMER,
+                                               INACTIVITY_DURATION);
+                            DB_printf("CARROT READY. Press the button %u times.\r\n",
+                                      CARROT_PRESSES_REQUIRED);
                         }
                     }
                     break;
 
                 case ES_CARROT_TASK_COMPLETE:
-                    if (CarrotInputEnabled &&
-                        (DetectedButtonPresses == TargetButtonPresses))
+                    if (!CarrotInputEnabled &&
+                        (DetectedButtonPresses == CARROT_PRESSES_REQUIRED))
                     {
                         DB_printf("CARROT CUT!\r\n");
                         CARROT_LED = LED_OFF;
-                        PostServoCommand(ES_SERVO_CARROT_OPEN);
-                        ES_Timer_StopTimer(INTERACTION_TIMER);
                         CompleteTask();
                     }
                     break;
@@ -676,11 +748,11 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                 case ES_TIMEOUT:
                     if (ThisEvent.EventParam == SENSOR_PRINT_TIMER)
                     {
-                        // Calibration readout
-                        uint16_t IR = QueryIRValue();
                         // Rise above ambient is what the window checks
-                        int16_t Rise = (int16_t)IR - (int16_t)HeatBaseline;
+                        int16_t Rise = IRCalibration - (int16_t)HeatBaseline;
                         ES_Timer_InitTimer(SENSOR_PRINT_TIMER, SENSOR_PRINT_PERIOD);
+                        DB_printf("IR: %u, Rise: %d, Target: %u..%u\r\n",
+                                  IRCalibration, Rise, HeatWindowLow(), HeatWindowHigh());
                     }
                     else if ((ThisEvent.EventParam == INTERACTION_TIMER) && CoilHeating)
                     {
@@ -780,6 +852,37 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
             if ((ThisEvent.EventType == ES_TIMEOUT) &&
                 (ThisEvent.EventParam == GAME_SERVICE_TIMER))
             {
+                if (!LossDisplayed)
+                {
+                    // show LOSS
+                    LossDisplayed = true;
+                    DB_printf("L O S S\r\n");
+                    if (!PostLEDDisplayLoss())
+                    {
+                        DB_printf("ERROR: Could not display LOSS\r\n");
+                    }
+                    ES_Timer_InitTimer(GAME_SERVICE_TIMER, RESTART_DISPLAY_OFF_DURATION);
+                }
+                else
+                {
+                    // loss finished, restarting
+                    LossDisplayed = false;
+                    if (!PostLEDClearDisplay())
+                    {
+                        DB_printf("ERROR: Could not clear LED display for welcome\r\n");
+                    }
+                    DB_printf("RESTARTING\r\n");
+                    RestartScrollIndex = 0;
+                    CurrentState = GAME_RESTARTING;
+                    ES_Timer_InitTimer(GAME_SERVICE_TIMER, RESTART_SCROLL_INTERVAL);
+                }
+            }
+            break;
+
+        case GAME_INACTIVE:
+            if ((ThisEvent.EventType == ES_TIMEOUT) &&
+                (ThisEvent.EventParam == INACTIVITY_TIMER))
+            {
                 ES_Event_t InitEvent;
                 bool SoupServoWasActive = SoupStirring || SoupShaking;
 
@@ -808,14 +911,9 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                 InitEvent.EventParam = 0;
                 if (!PostGameService(InitEvent))
                 {
-                    DB_printf("ERROR: Could not restart game service initialization\r\n");
+                    DB_printf("ERROR: Could not restart after inactivity\r\n");
                 }
             }
-            break;
-
-        case GAME_INACTIVE:
-            // Inactivity timeout logic will go here
-            DB_printf("NO INPUT\r\n");
             break;
 
         case GAME_TEST:
@@ -845,9 +943,9 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                 case ES_INPUT_POT_CHANGED:
                     TestPotValue = ThisEvent.EventParam;
-                    DB_printf("\r\n[POTENTIOMETER TEST]\r\n");
-                    DB_printf("Raw ADC: %u / 1023\r\n", TestPotValue);
-                    DB_printf("Position: %u%%\r\n", (uint16_t)((TestPotValue * 100U) / 1023U));
+                    //DB_printf("\r\n[POTENTIOMETER TEST]\r\n");
+                    //DB_printf("Raw ADC: %u / 1023\r\n", TestPotValue);
+                    //DB_printf("Position: %u%%\r\n", (uint16_t)((TestPotValue * 100U) / 1023U));
                     break;
 
                 case ES_INPUT_IR_CHANGED:
@@ -919,25 +1017,23 @@ static void InitHWPins(void)
 // Called on every entry to the carrot task
 static void EnterCarrotTask(void)
 {
-    TargetButtonPresses = (uint8_t)(CARROT_PRESSES_MIN +
-        (rand() % (CARROT_PRESSES_MAX - CARROT_PRESSES_MIN + 1U)));
     DetectedButtonPresses = 0;
     CarrotInputEnabled = false;
-    CarrotServoOpening = true;
-    CarrotServoClosing = false;
-    PostServoCommand(ES_SERVO_CARROT_OPEN);
-    ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_SERVO_OPEN_DURATION);
-    DB_printf("CUT CARROT! Wait for %u blinks.\r\n", TargetButtonPresses);
-}
+    CARROT_LED = LED_OFF;
 
+    CarrotEntryOpenBeforeClose = (CarrotServoCommandedAngle == 0U);
+    if (CarrotEntryOpenBeforeClose)
+    {
+        PostServoCommand(ES_SERVO_CARROT_OPEN);
+    }
+    else
+    {
+        PostServoCommand(ES_SERVO_CARROT_CLOSE);
+    }
 
-static void StartCarrotBlinkSequence(void)
-{
-    CarrotBlinksRemaining = TargetButtonPresses;
-    CarrotBlinkOn = true;
-    CarrotInputEnabled = false;
-    CARROT_LED = LED_ON;
-    ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_BLINK_DURATION);
+    ES_Timer_InitTimer(SEQUENCE_TIMER, CARROT_SERVO_CLOSE_DURATION);
+    DB_printf("CUT CARROT! Press the button %u times.\r\n",
+              CARROT_PRESSES_REQUIRED);
 }
 
 
@@ -1187,7 +1283,32 @@ static void PostServoCommand(ES_EventType_t Command)
         DB_printf("ERROR: Could not post servo command %u\r\n",
                   (unsigned int)Command);
     }
+    else if (Command == ES_SERVO_CARROT_OPEN)
+    {
+        CarrotServoCommandedAngle = 180U;
+    }
+    else if (Command == ES_SERVO_CARROT_CLOSE)
+    {
+        CarrotServoCommandedAngle = 0U;
+    }
 }
+
+static void PostCarrotServoAngle(uint8_t Degrees)
+{
+    ES_Event_t ServoEvent;
+    ServoEvent.EventType = ES_SERVO_CARROT_SET_ANGLE;
+    ServoEvent.EventParam = Degrees;
+    if (!PostServoService(ServoEvent))
+    {
+        DB_printf("ERROR: Could not post carrot servo angle %u\r\n",
+                  Degrees);
+    }
+    else
+    {
+        CarrotServoCommandedAngle = Degrees;
+    }
+}
+
 
 static void StartWinCelebration(void)
 {
@@ -1281,7 +1402,35 @@ static void UpdateGameTimer(void)
     }
 
     DB_printf("GAME TIME: %u\r\n", GameTime);
-    if (!PostLEDDisplayNumber(GameTime))
+
+    if (GameTime == 0U)
+    {
+        TimerBlinkActive = false;
+        TimerDisplayVisible = true;
+        ES_Timer_StopTimer(GAME_SERVICE_TIMER);
+    }
+    else if (GameTime <= TIMER_BLINK_START_SECONDS)
+    {
+        if (!TimerBlinkActive)
+        {
+            TimerBlinkActive = true;
+            TimerDisplayVisible = true;
+        }
+
+        ES_Timer_InitTimer(
+            GAME_SERVICE_TIMER,
+            (GameTime <= TIMER_BLINK_FAST_SECONDS) ?
+                TIMER_BLINK_FAST_INTERVAL : TIMER_BLINK_SLOW_INTERVAL);
+    }
+    else
+    {
+        TimerBlinkActive = false;
+        TimerDisplayVisible = true;
+        ES_Timer_StopTimer(GAME_SERVICE_TIMER);
+    }
+
+    if (!PostLEDDisplayTimerWithVisibility(
+            GameTime, GameProgress, TimerDisplayVisible))
     {
         DB_printf("ERROR: Could not update game timer display\r\n");
     }
@@ -1289,8 +1438,10 @@ static void UpdateGameTimer(void)
     if (GameTime == 0U)
     {
         GameTimerActive = false;
+        ClearNeoPixels();
         StopGameTimers();
         CurrentState = GAME_LOSING;
+        LossDisplayed = false;
         DB_printf("TIME UP\r\n");
         bool SoupServoWasActive = SoupStirring || SoupShaking;
         SoupStirring = false;
@@ -1299,8 +1450,6 @@ static void UpdateGameTimer(void)
         {
             PostServoCommand(ES_SERVO_SOUP_STOP);
         }
-        SetAllNeoPixels(0, 0, 0);
-        UpdateNeoPixels();
         ES_Timer_InitTimer(GAME_SERVICE_TIMER, COUNTDOWN_DURATION);
     }
     else
@@ -1325,13 +1474,20 @@ static void AssignNewTask(void)
 // Score the finished task, then move on to the next one after a short pause
 static void CompleteTask(void)
 {
+    ES_Timer_StopTimer(INACTIVITY_TIMER);
+    InactivityTimerActive = false;
     UpdateGameProgress();
 
-    // UpdateGameProgress switches to GAME_WINNING on the final point
     if (CurrentState != GAME_WINNING)
     {
         CurrentState = GAME_SELECT_TASK;
         ES_Timer_InitTimer(SEQUENCE_TIMER, TASK_GAP_DURATION);
+
+        if (!PostLEDDisplayTimerWithVisibility(
+                GameTime, GameProgress, TimerDisplayVisible))
+        {
+            DB_printf("ERROR: Could not update progress bar\r\n");
+        }
     }
 }
 
@@ -1376,10 +1532,8 @@ static void EnterWelcomeMode(void)
 
     DB_printf("BROTH OF DUTY\r\n");
 
-    // Light the start button while waiting for a player
     START_LED = LED_ON;
 
-    // Coil strip off until the heat task lights it
     ClearNeoPixels();
     UpdateNeoPixels();
 
@@ -1388,18 +1542,23 @@ static void EnterWelcomeMode(void)
         DB_printf("ERROR: Could not clear LED display for welcome\r\n");
     }
 
-    // LED welcome display will be implemented
-    // through the LEDService interface.
+    // Start scrolling the welcome message (handled in GAME_WELCOME)
+    WelcomeScrollIndex = 0;
+    ES_Timer_InitTimer(GAME_SERVICE_TIMER, WELCOME_SCROLL_INTERVAL);
 }
 
 static void StopGameTimers(void)
 {
     ES_Timer_StopTimer(GAME_TIMER);
+    ES_Timer_StopTimer(GAME_SERVICE_TIMER);
+    ES_Timer_StopTimer(INACTIVITY_TIMER);
     ES_Timer_StopTimer(INTERACTION_TIMER);
     ES_Timer_StopTimer(SEQUENCE_TIMER);
     ES_Timer_StopTimer(SENSOR_PRINT_TIMER);
     ES_Timer_StopTimer(SOUP_SHAKE_TIMER);
-    ES_Timer_StopTimer(GAME_SERVICE_TIMER);
+    TimerBlinkActive = false;
+    TimerDisplayVisible = true;
+    InactivityTimerActive = false;
 }
 
 

@@ -13,8 +13,16 @@
 #define CHAR_QUEUE_SIZE 8
 #define DISPLAY_WIDTH_COLUMNS 32U
 #define FONT_CHAR_WIDTH_COLUMNS 4U
+#define TIMER_SECOND_DIGIT_PADDING 1U
+#define TIMER_MIDDLE_PANEL_START 8U
+#define TIMER_MIDDLE_PANEL_WIDTH 16U
+#define TIMER_VISIBLE_EVENT_FLAG 0x8000U
 #define COUNTDOWN_ELLIPSIS_ROW 4U
 #define COUNTDOWN_ELLIPSIS_BITS 0x49U
+#define PROGRESS_ROW_TOP        6U   // bottom 2 rows of the matrix
+#define PROGRESS_ROW_BOTTOM     7U
+#define PROGRESS_COLS_PER_TASK  4U
+#define PROGRESS_MAX_TASKS      (DISPLAY_WIDTH_COLUMNS / PROGRESS_COLS_PER_TASK)
 
 typedef enum {
     LED_INITIALIZE,
@@ -30,17 +38,22 @@ static uint8_t CharQueueHead = 0;
 static uint8_t CharQueueTail = 0;
 static uint8_t CharQueueCount = 0;
 static uint8_t PendingNumber;
+static uint8_t PendingProgress;
 static uint8_t PendingCountdown;
+static bool PendingTimerVisible = true;
 static bool NumberPending = false;
 static bool CountdownPending = false;
 static bool CongratsPending = false;
 static bool GoPending = false;
+static bool LossPending = false;
 static bool ClearPending = false;
 
 static bool PostNextLEDService(ES_EventType_t EventType);
 static bool EnqueueChar(unsigned char NextChar);
 static bool DrawCenteredText(const char *Text);
 static bool DrawCenteredCountdown(uint8_t Remaining);
+static bool DrawTimerCenteredInMiddlePanels(uint8_t Number);
+static void DrawProgressBar(uint8_t TasksComplete);
 static bool DequeueChar(unsigned char *NextChar);
 static void StartNextChar(void);
 static void StartNextDisplayItem(void);
@@ -72,14 +85,35 @@ bool PostLEDService(ES_Event_t ThisEvent)
 
 bool PostLEDDisplayNumber(uint8_t Number)
 {
+    return PostLEDDisplayTimer(Number, 0U);
+}
+
+bool PostLEDDisplayTimer(uint8_t Number, uint8_t TasksComplete)
+{
+    return PostLEDDisplayTimerWithVisibility(Number, TasksComplete, true);
+}
+
+bool PostLEDDisplayTimerWithVisibility(
+    uint8_t Number,
+    uint8_t TasksComplete,
+    bool TimerVisible
+)
+{
     ES_Event_t ThisEvent;
 
     if (Number > 99U) {
         return false;
     }
+    if (TasksComplete > PROGRESS_MAX_TASKS) {
+        TasksComplete = PROGRESS_MAX_TASKS;
+    }
 
+    // Low byte: timer value; upper byte: progress plus timer visibility flag.
     ThisEvent.EventType = ES_LED_SET_NUMBER;
-    ThisEvent.EventParam = Number;
+    ThisEvent.EventParam = (uint16_t)(
+        ((uint16_t)TasksComplete << 8) |
+        Number |
+        (TimerVisible ? TIMER_VISIBLE_EVENT_FLAG : 0U));
     return PostLEDService(ThisEvent);
 }
 
@@ -123,6 +157,15 @@ bool PostLEDShowCongrats(bool Visible)
     }
 
     ThisEvent.EventType = ES_LED_SHOW_CONGRATS;
+    ThisEvent.EventParam = 0;
+    return PostLEDService(ThisEvent);
+}
+
+bool PostLEDDisplayLoss(void)
+{
+    ES_Event_t ThisEvent;
+
+    ThisEvent.EventType = ES_LED_SHOW_LOSS;
     ThisEvent.EventParam = 0;
     return PostLEDService(ThisEvent);
 }
@@ -175,13 +218,19 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
         }
 
         case ES_LED_SET_NUMBER:{
-            if (ThisEvent.EventParam <= 99U) {
-                PendingNumber = (uint8_t)ThisEvent.EventParam;
+            uint8_t Number = (uint8_t)(ThisEvent.EventParam & 0xFFU);
+            if (Number <= 99U) {
+                PendingNumber = Number;
+                PendingProgress =
+                    (uint8_t)((ThisEvent.EventParam >> 8) & 0x7FU);
+                PendingTimerVisible =
+                    ((ThisEvent.EventParam & TIMER_VISIBLE_EVENT_FLAG) != 0U);
                 NumberPending = true;
                 CountdownPending = false;
                 GoPending = false;
                 CongratsPending = false;
                 ClearPending = false;
+                LossPending = false;
 
                 if (CurrentState == LED_READY) {
                     StartNextDisplayItem();
@@ -201,6 +250,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             ClearPending = false;
             GoPending = false;
             CongratsPending = true;
+            LossPending = false;
 
             if (CurrentState == LED_READY) {
                 StartNextDisplayItem();
@@ -216,6 +266,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             GoPending = false;
             CongratsPending = false;
             ClearPending = true;
+            LossPending = false;
 
             if (CurrentState == LED_READY) {
                 StartNextDisplayItem();
@@ -231,6 +282,7 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
             CongratsPending = false;
             ClearPending = false;
             GoPending = true;
+            LossPending = false;
 
             if (CurrentState == LED_READY) {
                 StartNextDisplayItem();
@@ -250,12 +302,29 @@ ES_Event_t RunLEDService(ES_Event_t ThisEvent)
                 CongratsPending = false;
                 GoPending = false;
                 ClearPending = false;
+                LossPending = false;
 
                 if (CurrentState == LED_READY) {
                     StartNextDisplayItem();
                 }
             } else {
                 DB_printf("LED countdown step must be between 1 and 3\r\n");
+            }
+            break;
+
+        case ES_LED_SHOW_LOSS:
+            CharQueueHead = 0;
+            CharQueueTail = 0;
+            CharQueueCount = 0;
+            NumberPending = false;
+            CountdownPending = false;
+            CongratsPending = false;
+            ClearPending = false;
+            GoPending = false;
+            LossPending = true;
+
+            if (CurrentState == LED_READY) {
+                StartNextDisplayItem();
             }
             break;
 
@@ -390,6 +459,75 @@ static bool DrawCenteredCountdown(uint8_t Remaining)
     return true;
 }
 
+static bool DrawTimerCenteredInMiddlePanels(uint8_t Number)
+{
+    uint8_t FontRow;
+    uint8_t DigitCount = (Number >= 10U) ? 2U : 1U;
+    uint8_t ContentWidth = (uint8_t)(DigitCount * FONT_CHAR_WIDTH_COLUMNS);
+    uint8_t LeftMargin;
+
+    if (DigitCount == 2U)
+    {
+        ContentWidth += TIMER_SECOND_DIGIT_PADDING;
+    }
+
+    LeftMargin = (uint8_t)(
+        TIMER_MIDDLE_PANEL_START +
+        ((TIMER_MIDDLE_PANEL_WIDTH - ContentWidth) / 2U));
+
+    if (Number > 99U)
+    {
+        return false;
+    }
+
+    for (FontRow = 0; FontRow < 5U; FontRow++)
+    {
+        uint32_t RowData;
+
+        if (DigitCount == 2U)
+        {
+            RowData =
+                ((uint32_t)getFontLine(
+                     (unsigned char)('0' + (Number / 10U)), FontRow)
+                 << (FONT_CHAR_WIDTH_COLUMNS + TIMER_SECOND_DIGIT_PADDING)) |
+                getFontLine((unsigned char)('0' + (Number % 10U)), FontRow);
+        }
+        else
+        {
+            RowData = getFontLine((unsigned char)('0' + Number), FontRow);
+        }
+
+        RowData <<= LeftMargin;
+        if (!DM_PutDataIntoBufferRow(RowData, FontRow))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+// Fills the bottom 2 rows from the left, 4 columns per completed task
+static void DrawProgressBar(uint8_t TasksComplete)
+{
+    uint32_t RowData = 0U;
+
+    if (TasksComplete > PROGRESS_MAX_TASKS)
+    {
+        TasksComplete = PROGRESS_MAX_TASKS;
+    }
+
+    if (TasksComplete > 0U)
+    {
+        // Bit 31 is the left-most column
+        RowData = 0xFFFFFFFFUL <<
+            (DISPLAY_WIDTH_COLUMNS - (TasksComplete * PROGRESS_COLS_PER_TASK));
+    }
+
+    (void)DM_PutDataIntoBufferRow(RowData, PROGRESS_ROW_TOP);
+    (void)DM_PutDataIntoBufferRow(RowData, PROGRESS_ROW_BOTTOM);
+}
 
 static bool DequeueChar(unsigned char *NextChar) {
     if ((CharQueueCount == 0) || (NextChar == NULL)) {
@@ -491,16 +629,35 @@ static void StartNextDisplayItem(void)
         }
         return;
     }
+    if(LossPending) {
+        LossPending = false;
+        DM_ClearDisplayBuffer();
+        if (!DrawCenteredText("L O S T")) {
+            DB_printf("ERROR: Could not draw LOSS text\r\n");
+            return;
+        }
+
+        CurrentState = LED_UPDATING;
+        if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
+            CurrentState = LED_READY;
+            LossPending = true;
+            DB_printf("ERROR: Could not post LOSS display update\r\n");
+        }
+        return;
+    }
 
     if (NumberPending) {
         NumberPending = false;
         DM_ClearDisplayBuffer();
 
-        if (PendingNumber >= 10U) {
-            DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber / 10U)));
-            DM_ScrollDisplayBuffer(8U);
+        if (PendingTimerVisible &&
+            !DrawTimerCenteredInMiddlePanels(PendingNumber))
+        {
+            NumberPending = true;
+            DB_printf("ERROR: Could not draw game timer\r\n");
+            return;
         }
-        DM_AddChar2DisplayBuffer((unsigned char)('0' + (PendingNumber % 10U)));
+        DrawProgressBar(PendingProgress);
 
         CurrentState = LED_UPDATING;
         if (!PostNextLEDService(ES_LED_UPDATE_STEP)) {
