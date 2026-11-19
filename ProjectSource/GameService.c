@@ -46,7 +46,7 @@
 
 // Carrot task
 #define CARROT_PRESSES_REQUIRED 18U
-#define CARROT_SERVO_STEP_DEGREES 3U
+#define CARROT_SERVO_STEP_DEGREES 1U
 #define CARROT_SERVO_CLOSE_DURATION 500U
 #define CARROT_LED              LATAbits.LATA3
 #define CARROT_LED_TRIS         TRISAbits.TRISA3
@@ -94,7 +94,7 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
 // Pause between finishing one task and starting the next
 #define TASK_GAP_DURATION       500
 
-#define WIN_CELEBRATION_DURATION 5000U
+#define WIN_CELEBRATION_DURATION 15000U
 #define WIN_ANIMATION_STEP       100U
 #define WIN_TOGGLE_INTERVAL_STEPS 5U
 #define WIN_ANIMATION_TOTAL_STEPS \
@@ -102,7 +102,7 @@ static const uint16_t HeatTargetRiseOptions[HEAT_TARGET_VARIANT_COUNT] =
 #define WIN_RAINBOW_PHASE_STEP   8U
 #define WIN_CELEBRATION_TIMER    GAME_SERVICE_TIMER
 
-#define DISPENSE_TIMEOUT         5000U
+#define DISPENSE_TIMEOUT         3000U
 
 
 /*******************************
@@ -206,6 +206,7 @@ static uint16_t TestCarrotPressCount = 0;
 static uint16_t TestPotValue = 0;
 static uint16_t TestIRValue = 0;
 static uint16_t TestBeamBreak = 0;
+static uint8_t IRCalibration = 200;
 
 // Dispense servo phases
 typedef enum
@@ -599,7 +600,7 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                             if (DetectedButtonPresses < CARROT_PRESSES_REQUIRED)
                             {
                                 PostCarrotServoAngle(
-                                    (uint8_t)(DetectedButtonPresses *
+                                    (uint8_t)(180 - DetectedButtonPresses *
                                               CARROT_SERVO_STEP_DEGREES));
                             }
                             else
@@ -714,11 +715,11 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
                 case ES_TIMEOUT:
                     if (ThisEvent.EventParam == SENSOR_PRINT_TIMER)
                     {
-                        // Calibration readout
-                        uint16_t IR = QueryIRValue();
                         // Rise above ambient is what the window checks
-                        int16_t Rise = (int16_t)IR - (int16_t)HeatBaseline;
+                        int16_t Rise = IRCalibration - (int16_t)HeatBaseline;
                         ES_Timer_InitTimer(SENSOR_PRINT_TIMER, SENSOR_PRINT_PERIOD);
+                        DB_printf("IR: %u, Rise: %d, Target: %u..%u\r\n",
+                                  IRCalibration, Rise, HeatWindowLow(), HeatWindowHigh());
                     }
                     else if ((ThisEvent.EventParam == INTERACTION_TIMER) && CoilHeating)
                     {
@@ -914,9 +915,9 @@ ES_Event_t RunGameService(ES_Event_t ThisEvent)
 
                 case ES_INPUT_POT_CHANGED:
                     TestPotValue = ThisEvent.EventParam;
-                    DB_printf("\r\n[POTENTIOMETER TEST]\r\n");
-                    DB_printf("Raw ADC: %u / 1023\r\n", TestPotValue);
-                    DB_printf("Position: %u%%\r\n", (uint16_t)((TestPotValue * 100U) / 1023U));
+                    //DB_printf("\r\n[POTENTIOMETER TEST]\r\n");
+                    //DB_printf("Raw ADC: %u / 1023\r\n", TestPotValue);
+                    //DB_printf("Position: %u%%\r\n", (uint16_t)((TestPotValue * 100U) / 1023U));
                     break;
 
                 case ES_INPUT_IR_CHANGED:

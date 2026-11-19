@@ -46,14 +46,14 @@
 
 // Continuous servos, 1.5 ms is stop, +/- 0.5 ms is full speed either way
 #define CONT_SPEED_SPAN         1250    // 0.5 ms
-#define DISPENSE_SPEED          60      // percent, -100..100; flip sign to reverse
+#define DISPENSE_SPEED          -20      // percent, -100..100; flip sign to reverse
 
 // Carrot (180 deg) servo positions. Many hobby servos use 0.5-2.5 ms for the
 // full 180 deg; calibrate these on the real hardware.
 #define CARROT_MIN_PULSE        1250    // 0.5 ms  ->   0 deg
 #define CARROT_MAX_PULSE        6250    // 2.5 ms  -> 180 deg
-#define CARROT_CLOSED_DEG       0
-#define CARROT_OPEN_DEG         180
+#define CARROT_CLOSED_DEG       180
+#define CARROT_OPEN_DEG         150
 
 /*---------------------------- Module Functions ---------------------------*/
 static void InitServoHardware(void);
