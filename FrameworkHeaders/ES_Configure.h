@@ -297,6 +297,7 @@ typedef enum
   ES_LED_CLEAR_DISPLAY,
   ES_LED_SHOW_GO,
   ES_LED_COUNTDOWN_STEP,
+  ES_LED_SHOW_LOSS,
 
   // game events
   ES_GAME_START,
@@ -323,6 +324,7 @@ typedef enum
   // servo commands (ServoService)
   ES_SERVO_CARROT_OPEN,
   ES_SERVO_CARROT_CLOSE,
+  ES_SERVO_CARROT_SET_ANGLE,
   ES_SERVO_SOUP_SPEED,      /* EventParam = (int16_t) speed, -100..100 */
   ES_SERVO_SOUP_STOP,
   ES_SERVO_SOUP_SHAKE,
@@ -337,7 +339,6 @@ typedef enum
   ES_INPUT_CARROT_RELEASED,
 
   ES_INPUT_POT_CHANGED,
-
   ES_INPUT_IR_CHANGED,
 
   ES_INPUT_BEAM_BROKEN,

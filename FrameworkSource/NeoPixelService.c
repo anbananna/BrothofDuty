@@ -18,15 +18,13 @@
      (12.8 us on the wire). The 4-word FIFO holds ~50 us, so even the slow
      -O0 code keeps it full and the stream has no gaps.
 
-     Pins: SDO2 -> RB11 (via PPS). SCK2 is fixed on RB15 (unused, NC).
-     SPI1 is left alone (it drives the display).
 ****************************************************************************/
 #include "NeoPixelService.h"
 #include <xc.h>
 #include <stdbool.h>
 #include "dbprintf.h"
 
-#define MAX_LEDS            30
+#define MAX_LEDS            9
 
 #define WS_TRIS             TRISBbits.TRISB11
 #define WS_LAT              LATBbits.LATB11
@@ -56,7 +54,7 @@ static void WaitTicks(uint32_t Ticks);
 ****************************************************************************/
 void InitNeoPixelService(void)
 {
-    WS_TRIS = 0;        // RB11 output (no analog function on this pin)
+    WS_TRIS = 0;        // RB11 output
     WS_LAT = 0;
 
     InitSPI2();
